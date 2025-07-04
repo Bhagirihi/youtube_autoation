@@ -1,0 +1,28 @@
+# ─── Node & Package Manager ───────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ─── Secrets & Config ─────────────────────────────
+.env            # main env file
+.env.*          # variants like .env.production
+
+# ─── Build / Output Artifacts ─────────────────────
+dist/
+build/
+coverage/
+*.log
+*.sqlite
+*.xlsx          # your horror_story.xlsx, results, etc.
+output/
+tmp/
+AI_videos/
+audio_scripts/
+story_scripts/
+
+
+# ─── IDE / Editor Garbage ─────────────────────────
+.vscode/
+.idea/
+.DS_Store
