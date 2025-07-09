@@ -26,3 +26,4 @@ story_scripts/
 .vscode/
 .idea/
 .DS_Store
+.env
