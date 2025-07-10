@@ -115,42 +115,48 @@ function readAndCheckExcel() {
       );
     }
 
-    if (scriptWriter.length) {
-      console.log(
-        `📝 Found scriptWriter ${JSON.stringify(
-          sheetData[0]
-        )} stories to process...`
-      );
-      enqueueScript(
-        path.join(__dirname, "scriptWriter.js"),
-        "scriptWriter",
-        JSON.stringify(sheetData[0])
-      );
-    }
+    // if (scriptWriter.length) {
+    //   console.log(
+    //     `📝 Found scriptWriter ${JSON.stringify(
+    //       sheetData[0]
+    //     )} stories to process...`
+    //   );
+    //   enqueueScript(
+    //     path.join(__dirname, "scriptWriter.js"),
+    //     "scriptWriter",
+    //     JSON.stringify(sheetData[0])
+    //   );
+    // }
 
-    if (scriptRefiner.length) {
-      enqueueScript(
-        path.join(__dirname, "scriptRefiner.js"),
-        "scriptRefiner",
-        JSON.stringify(sheetData[0])
-      );
-    }
+    // if (scriptRefiner.length) {
+    //   enqueueScript(
+    //     path.join(__dirname, "scriptRefiner.js"),
+    //     "scriptRefiner",
+    //     JSON.stringify(sheetData[0])
+    //   );
+    // }
 
     if (scriptVoiceOver.length) {
       enqueueScript(
         path.join(__dirname, "scriptVoiceOver.js"),
-        "scriptVoiceOver"
+        "scriptVoiceOver",
+        JSON.stringify(sheetData[0])
       );
     }
 
     if (scriptVideo.length) {
-      enqueueScript(path.join(__dirname, "scriptVideo.js"), "scriptVideo");
+      enqueueScript(
+        path.join(__dirname, "scriptVideo.js"),
+        "scriptVideo",
+        JSON.stringify(sheetData[0])
+      );
     }
 
     if (videoToYouTube.length) {
       enqueueScript(
         path.join(__dirname, "videoToYouTube.js"),
-        "Video Uploaded to YouTube"
+        "Video Uploaded to YouTube",
+        JSON.stringify(sheetData[0])
       );
     }
   } catch (error) {
