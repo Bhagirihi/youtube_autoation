@@ -2,11 +2,11 @@
   "name": "youtube_automation",
   "version": "1.0.0",
   "description": "",
-  "main": "orchestrator.mjs",
+  "main": "watch-horror-story.mjs",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node orchestrator.mjs"
+    "start": "node watch-horror-story.mjs"
   },
   "keywords": [],
   "author": "",
@@ -14,15 +14,20 @@
   "dependencies": {
     "@echristian/edge-tts": "^0.0.14",
     "@google/generative-ai": "^0.24.1",
+    "@indic-transliteration/sanscript": "^1.3.3",
     "axios": "^1.10.0",
     "chokidar": "^4.0.3",
     "cli-progress": "^3.12.0",
     "diacritics": "^1.3.0",
     "dotenv": "^17.0.1",
     "fs": "^0.0.1-security",
+    "json5": "^2.2.3",
     "openai": "^5.8.2",
     "sanscript": "^0.0.2",
+    "slug": "^11.0.0",
+    "transliteration": "^2.3.5",
     "xlsx": "^0.18.5",
+    "yt-search": "^2.13.1",
     "ytsr": "^3.8.4"
   }
 }
