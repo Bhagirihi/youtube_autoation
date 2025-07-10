@@ -8,7 +8,7 @@ dotenv.config();
 // Get message from parent
 process.on("message", async ({ label, row }) => {
   const { slug } = JSON.parse(row);
-  console.log(`🎙️ Received row for: ${slug}`);
+  console.log(`🎙️ ${label} Received row for: ${slug}`);
   // Use row.url, row.duration, etc.
   const transcript = await getTranscriptViaRecapio(slug);
   // Simulate work

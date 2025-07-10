@@ -7,6 +7,8 @@ import {
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import path from "path";
 import dotenv from "dotenv";
+import axios from "axios";
+import fs from "fs-extra";
 import { updateExcel } from "./helper/excelHelpers.js";
 
 dotenv.config();
@@ -14,7 +16,7 @@ dotenv.config();
 // Get message from parent
 process.on("message", async ({ label, row }) => {
   const { slug } = JSON.parse(row);
-  console.log(`🎙️ Received row for: ${slug}`);
+  console.log(`🎙️ ${label} Received row for: ${slug}`);
   const filePath = path.join("storyScript", `${slug}_summary.txt`);
   const summary = await readFileUtf8(filePath);
   console.log(`🎙️ [${label}] summary length =`, summary.length);
@@ -112,6 +114,83 @@ function cleanArrayString(input = "") {
     .trim();
 }
 
+async function downloadImage(url, filename) {
+  const downloadFolder = path.resolve("storyScript_AI/images");
+  await fs.ensureDir(downloadFolder);
+  const filePath = path.join(downloadFolder, filename);
+  const writer = fs.createWriteStream(filePath);
+
+  const response = await axios({
+    url,
+    method: "GET",
+    responseType: "stream",
+  });
+
+  response.data.pipe(writer);
+  return new Promise((resolve, reject) => {
+    writer.on("finish", () => resolve(filePath));
+    writer.on("error", reject);
+  });
+}
+
+async function fetchAndDownloadImages(tags) {
+  const results = [];
+  const UNSPLASH_KEY = process.env.UNSPLASH_API_KEY;
+
+  if (!UNSPLASH_KEY) throw new Error("UNSPLASH_API_KEY missing");
+  for (const tag of tags) {
+    const searchQuery = `${tag} horror story`;
+
+    try {
+      const res = await axios.get("https://api.unsplash.com/search/photos", {
+        params: {
+          query: searchQuery,
+          per_page: 1,
+          orientation: "landscape",
+          content_filter: "high",
+        },
+        headers: {
+          Authorization: `Client-ID ${ACCESS_KEY}`,
+        },
+      });
+
+      const photo = res.data.results?.[0];
+      if (photo) {
+        const imageUrl = photo.urls.full;
+        const filename = `${tag.replace(/\s+/g, "_")}.jpg`;
+
+        const savedPath = await downloadImage(imageUrl, filename);
+
+        results.push({
+          tag,
+          query: searchQuery,
+          image_url: imageUrl,
+          saved_as: filename,
+          local_path: savedPath,
+          photographer: photo.user.name,
+          source_link: photo.links.html,
+        });
+
+        console.log(`✅ Downloaded: ${filename}`);
+      } else {
+        results.push({ tag, query: searchQuery, error: "No image found" });
+        console.log(`⚠️ No result for: ${tag}`);
+      }
+    } catch (err) {
+      console.error(`❌ Error for "${tag}":`, err.message);
+      results.push({ tag, query: searchQuery, error: err.message });
+    }
+  }
+  // Save metadata to storyScript_AI/unsplash_horror_images.json
+  const metadataPath = path.join(
+    "storyScript_AI",
+    "unsplash_horror_images.json"
+  );
+  await fs.ensureDir(path.dirname(metadataPath));
+  fs.writeFileSync(metadataPath, JSON.stringify(results, null, 2));
+  console.log("📁 Metadata saved:", metadataPath);
+}
+
 const generatePrompt = (summary) => `
 आप एक पेशेवर हिंदी हॉरर कहानी लेखक और वॉइसओवर स्क्रिप्ट राइटर हैं।
 
@@ -152,7 +231,7 @@ async function generateStoryFromSummary(slug, summary) {
 
   if (!GEMINI_KEY) throw new Error("GEMINI_API_KEY missing");
   const promptText = generatePrompt(summary);
-  console.log(`🎙️ [${label}] ${promptText.trim()}`);
+  console.log(`🎙️ [${slug}] ${promptText.trim()}`);
   const gen = new GoogleGenerativeAI(GEMINI_KEY).getGenerativeModel({
     model: "gemini-2.0-flash",
   });
@@ -210,9 +289,10 @@ async function generateStoryFromSummary(slug, summary) {
   const imageTags = await cleanArrayString(image_tags);
   const youtubeTags = await cleanArrayString(youtube_tags);
   const cleanStory = await cleanAndParagraph(story || "");
+  await fetchAndDownloadImages(image_tags);
   console.log("YT", youtube_tags, title, cleanStory, image_tags);
   await sleep(2000 + Math.random() * 3000); // 2000‐5000 ms
-  await saveToFile("storyScript_AI", `AI_Story_${slug}`, cleanStory);
+  await saveToFile(`storyScript_AI/${title}`, `AI_Story_${slug}`, cleanStory);
   await updateExcel(slug, {
     status: "refined",
     aiTitle: title,

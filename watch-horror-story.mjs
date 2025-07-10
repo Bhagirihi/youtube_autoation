@@ -17,12 +17,10 @@ let isProcessing = false;
 function createExcelIfNotExist() {
   if (!fs.existsSync(filePath)) {
     console.log("📄 File not found. Creating Horror_Story.xlsx...");
-    const headers = [
-      { Title: "", Url: "", Tags: "", Status: "" }, // initial row
-    ];
+    const headers = [];
     const worksheet = xlsx.utils.json_to_sheet(headers);
     const workbook = xlsx.utils.book_new();
-    xlsx.utils.book_append_sheet(workbook, worksheet, "Stories");
+    xlsx.utils.book_append_sheet(workbook, worksheet, "Horror_Story");
     xlsx.writeFile(workbook, filePath);
     console.log("✅ File created with headers.");
   }
@@ -83,6 +81,7 @@ function readAndCheckExcel() {
     const workbook = xlsx.readFile(filePath);
     const sheetName = workbook.SheetNames[0];
     const sheetData = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    console.log(`📃 Sheet data: ${JSON.stringify(sheetData)}`);
 
     const scriptWriter = sheetData.filter((row) =>
       row.status?.toLowerCase().includes("fetched")
@@ -101,9 +100,26 @@ function readAndCheckExcel() {
       row.status?.toLowerCase().includes("videoPrepared")
     );
 
+    if (
+      !scriptWriter.length &&
+      !scriptRefiner.length &&
+      !scriptVoiceOver.length &&
+      !scriptVideo.length &&
+      !videoToYouTube.length
+    ) {
+      console.log("⚠️ No matching stories to process.");
+      console.log("Fetching new videos. Please wait...");
+      enqueueScript(
+        path.join(__dirname, "fetchYoutube.js"),
+        "Finding new videos"
+      );
+    }
+
     if (scriptWriter.length) {
       console.log(
-        `📝 Found ${JSON.stringify(sheetData[0])} stories to process...`
+        `📝 Found scriptWriter ${JSON.stringify(
+          sheetData[0]
+        )} stories to process...`
       );
       enqueueScript(
         path.join(__dirname, "scriptWriter.js"),
@@ -135,21 +151,6 @@ function readAndCheckExcel() {
       enqueueScript(
         path.join(__dirname, "videoToYouTube.js"),
         "Video Uploaded to YouTube"
-      );
-    }
-
-    if (
-      !scriptWriter.length &&
-      !scriptRefiner.length &&
-      !scriptVoiceOver.length &&
-      !scriptVideo.length &&
-      !videoToYouTube.length
-    ) {
-      console.log("⚠️ No matching stories to process.");
-      console.log("Fetching new videos. Please wait...");
-      enqueueScript(
-        path.join(__dirname, "fetchYoutube.js"),
-        "Finding new videos"
       );
     }
   } catch (error) {
