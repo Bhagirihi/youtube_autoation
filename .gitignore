@@ -1,0 +1,11 @@
+# Mac system files
+.DS_Store
+
+# Environment files
+.env
+
+# Node dependencies
+node_modules/
+
+# Story output
+stories/
