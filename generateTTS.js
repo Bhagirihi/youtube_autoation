@@ -7,19 +7,7 @@ import { fetchTTS, sleep } from "./utils/commonFunction.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-// const title = "सातवाँ_दरवाज़ा";
-// const audio = [
-//   "stories/सातवाँ_दरवाज़ा/voiceover/सातवाँ_दरवाज़ा_intro.mp3",
-//   "stories/सातवाँ_दरवाज़ा/voiceover/सातवाँ_दरवाज़ा_build_up.mp3",
-//   "stories/सातवाँ_दरवाज़ा/voiceover/सातवाँ_दरवाज़ा_suspense.mp3",
-//   "stories/सातवाँ_दरवाज़ा/voiceover/सातवाँ_दरवाज़ा_twist.mp3",
-//   "stories/सातवाँ_दरवाज़ा/voiceover/सातवाँ_दरवाज़ा_ending_line.mp3",
-// ];
-// const bgm =
-//   "/Users/dhruvdave/Documents/Dhruv/AI_CODE/NEW_YT/YT_v3/bgm/music.mp3";
-// const out = "stories/सातवाँ_दरवाज़ा/voiceover/सातवाँ_दरवाज़ा.mp3";
 
-// Utility: Remove illegal file characters
 function sanitizeFilename(name) {
   return name.replace(/[<>:"/\\|?*]+/g, "").replace(/\s+/g, "_");
 }
@@ -35,7 +23,6 @@ export default async function generateTTS({ storyData }) {
     ending_line,
     instructions = "",
   } = storyData;
-  console.log("🔊 Generating TTS for:", { title });
 
   const safeTitle = sanitizeFilename(title);
   const folderPath = path.join("stories", safeTitle, "voiceover");
@@ -51,7 +38,6 @@ export default async function generateTTS({ storyData }) {
     { key: "twist", text: twist },
     { key: "ending_line", text: ending_line },
   ];
-  console.log("🔊 Generating segments TTS:", { segments });
 
   const audioPaths = [];
   const tempListPath = path.join(folderPath, "temp_list.txt");
@@ -67,7 +53,7 @@ export default async function generateTTS({ storyData }) {
       await fetchTTS(
         "https://www.openai.fm/api/generate",
         text,
-        instructions,
+
         "coral",
         "67612c8-4975-452f-af3f-d44cca8915e5",
         outputPath,
@@ -88,7 +74,7 @@ export default async function generateTTS({ storyData }) {
   // 🧩 Final merge with background
   const finalOutput = path.join(folderPath, `${safeTitle}.mp3`);
   const bgmPath = path.join("bgm", "music.mp3");
-  console.log("🎵 Merging voice with BGM...", audioPaths, bgmPath, finalOutput);
+
   try {
     // await mergeVoiceWithBackground(safeTitle, audioPaths, bgmPath, finalOutput);
     await mergeVoiceWithBackground(title, audioPaths, bgmPath, finalOutput);

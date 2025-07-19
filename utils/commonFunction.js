@@ -2,6 +2,26 @@ import axios from "axios";
 import fs, { link } from "fs";
 import path from "path";
 
+export const logBox = (stepNumber, label) => {
+  const reset = "\x1b[0m";
+  const bold = "\x1b[1m";
+  const cyan = "\x1b[36m";
+  const green = "\x1b[32m";
+
+  const content = `${cyan}${bold}🛠️ Step ${stepNumber}:${reset} ${green}${label}${reset}`;
+  const padding = 4;
+  const lineLength = content.replace(/\x1b\[\d+m/g, "").length + padding;
+  const top = "┌" + "─".repeat(lineLength) + "┐";
+  const mid = `│ ${content}${" ".repeat(
+    lineLength - content.replace(/\x1b\[\d+m/g, "").length - 1
+  )}│`;
+  const bottom = "└" + "─".repeat(lineLength) + "┘";
+
+  console.log(top);
+  console.log(mid);
+  console.log(bottom);
+};
+
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export const generateFolderFile = async (folder, safeTitle, content) => {
@@ -14,7 +34,7 @@ export const generateFolderFile = async (folder, safeTitle, content) => {
       fs.mkdirSync(folderPath, { recursive: true }); // ✅ allows "a/b/c"
     }
 
-    fs.writeFileSync(filePath, content, "utf-8");
+    fs.writeFileSync(filePath, JSON.stringify(content, null, 2), "utf8");
     console.log(`✅ Content saved to: ${filePath}`);
     return true;
   } catch (error) {
@@ -70,7 +90,7 @@ Return output as plain JSON, like:
 export async function fetchTTS(
   apiUrl = "https://www.openai.fm/api/generate",
   content,
-  instructions,
+
   voice = "coral",
   generation = "67612c8-4975-452f-af3f-d44cca8915e5",
   folderPath,
@@ -88,7 +108,6 @@ Emotion:
 Pronunciation:
  Clear and expressive, with gentle rises and falls in tone to enhance storytelling. Each word should feel like part of a bedtime tale — easy to follow, and softly enchanting.`;
 
-    console.log("🔊 Generating TTS Prompt:", instructions);
     const headers = {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +

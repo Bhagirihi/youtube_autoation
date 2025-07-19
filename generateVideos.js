@@ -17,9 +17,8 @@ function sanitizeFilename(name) {
 
 // Main video generation function
 export default async function generateAIVideo(videoData) {
-  console.log("🎬 Generating video for:", videoData);
   const { title } = videoData;
-  console.log("🎬 Generating video for:", __dirname);
+
   const safeTitle = sanitizeFilename(title);
   const storyFolder = path.join("stories", safeTitle);
 
@@ -146,57 +145,4 @@ export default async function generateAIVideo(videoData) {
       })
       .run();
   });
-
-  // // ✅ Now merge intro + core + outro
-  // const introPath = path.resolve(__dirname, "bgm", "intro_music.mp4");
-  // const outroPath = path.resolve(__dirname, "bgm", "end.mp4");
-  // const finalOutput = path.join(outputFolder, `${safeTitle}_final.mp4`);
-  // const mergeListFile = path.join(outputFolder, "merge.txt");
-
-  // const mergeData = [
-  //   `file '${introPath}'`,
-  //   `file '${path.resolve(outputPath)}'`,
-  //   `file '${outroPath}'`,
-  // ].join("\n");
-
-  // fs.writeFileSync(mergeListFile, mergeData);
-  // // 🔍 Find .txt file in imageFolder
-  // const mergeTxtFile = fs
-  //   .readdirSync(outputFolder)
-  //   .find((file) => /\.txt$/i.test(file));
-
-  // if (!txtFile) throw new Error("❌ No .txt file found in images folder.");
-
-  // const mergeTxtFilePath = path.join(outputFolder, mergeTxtFile);
-  // console.log("📄 Found .txt file:", mergeTxtFilePath);
-
-  // const mergeLines = fs.readFileSync(mergeTxtFilePath, "utf-8").split("\n");
-  // mergeLines.forEach((line) => {
-  //   if (line.startsWith("file ")) {
-  //     const filePath = line.replace("file '", "").replace("'", "").trim();
-  //     if (!fs.existsSync(filePath)) {
-  //       console.warn("❌ MISSING FILE:", filePath);
-  //     }
-  //   }
-  // });
-
-  // console.log("🔀 Merging final video with intro & outro...");
-
-  // return new Promise((resolve, reject) => {
-  //   ffmpeg()
-  //     .input(path.resolve(mergeTxtFilePath))
-  //     .inputOptions("-f", "concat", "-safe", "0")
-  //     .outputOptions(["-c", "copy"])
-
-  //     .output(path.resolve(finalOutput))
-  //     .on("end", () => {
-  //       console.log(`🎉 Final video created at: ${finalOutput}`);
-  //       resolve(finalOutput);
-  //     })
-  //     .on("error", (err) => {
-  //       console.error("❌ FFmpeg Merge Error:", err);
-  //       reject(err);
-  //     })
-  //     .run();
-  // });
 }
