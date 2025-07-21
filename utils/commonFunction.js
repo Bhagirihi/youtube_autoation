@@ -97,16 +97,25 @@ export async function fetchTTS(
   __dirname
 ) {
   try {
-    const instructions = `Affect:
- A gentle, curious narrator with a soft British accent, leading young listeners through a mysterious yet child-safe adventure, where curiosity gently uncovers magical secrets hidden in a forgotten mansion.
-Tone:
- Mysterious but warm, inviting wonder and imagination rather than fear — creating a magical and lightly spooky atmosphere full of gentle suspense, not horror.
-Pacing:
- Steady and thoughtful, with pauses to highlight magical discoveries and curious turns. Designed to maintain the attention of children and gently lead them through each unfolding mystery.
-Emotion:
- Curiosity, excitement, and a touch of awe. The story should inspire a love for exploring the unknown, with a lighthearted and safe sense of adventure throughout.
-Pronunciation:
- Clear and expressive, with gentle rises and falls in tone to enhance storytelling. Each word should feel like part of a bedtime tale — easy to follow, and softly enchanting.`;
+    const instructions = `
+Voice Affect: Low, hushed, and suspenseful; convey tension and intrigue.
+Tone: Deeply serious and mysterious, maintaining an undercurrent of unease throughout.
+Pacing: Slow, deliberate, pausing slightly after suspenseful moments to heighten drama.
+Emotion: Restrained yet intense—voice should subtly tremble or tighten at key suspenseful points.
+Emphasis: Highlight sensory descriptions ("footsteps echoed," "heart hammering," "shadows melting into darkness") to amplify atmosphere.
+Pronunciation: Slightly elongated vowels and softened consonants for an eerie, haunting effect.
+Pauses: Insert meaningful pauses after phrases like "only shadows melting into darkness," and especially before the final line, to enhance suspense dramatically.`;
+
+    //     `Affect:
+    //  A gentle, curious narrator with a soft British accent, leading young listeners through a mysterious yet child-safe adventure, where curiosity gently uncovers magical secrets hidden in a forgotten mansion.
+    // Tone:
+    //  Mysterious but warm, inviting wonder and imagination rather than fear — creating a magical and lightly spooky atmosphere full of gentle suspense, not horror.
+    // Pacing:
+    //  Steady and thoughtful, with pauses to highlight magical discoveries and curious turns. Designed to maintain the attention of children and gently lead them through each unfolding mystery.
+    // Emotion:
+    //  Curiosity, excitement, and a touch of awe. The story should inspire a love for exploring the unknown, with a lighthearted and safe sense of adventure throughout.
+    // Pronunciation:
+    //  Clear and expressive, with gentle rises and falls in tone to enhance storytelling. Each word should feel like part of a bedtime tale — easy to follow, and softly enchanting.`;
 
     const headers = {
       "User-Agent":

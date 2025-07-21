@@ -3,13 +3,33 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import ffmpeg from "fluent-ffmpeg";
-import { fetchTTS, sleep } from "./utils/commonFunction.js";
+import { fetchTTS, logBox, sleep } from "./utils/commonFunction.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const MAX_CHARS = 990;
 
 function sanitizeFilename(name) {
   return name.replace(/[<>:"/\\|?*]+/g, "").replace(/\s+/g, "_");
+}
+
+// 🔧 Helper to split long text into < MAX_CHARS segments
+function splitTextIntoChunks(text, maxLen) {
+  const sentences = text.split(/(?<=[।.!?])\s+/); // smart sentence split
+  const chunks = [];
+  let currentChunk = "";
+
+  for (const sentence of sentences) {
+    if ((currentChunk + " " + sentence).length <= maxLen) {
+      currentChunk += (currentChunk ? " " : "") + sentence;
+    } else {
+      if (currentChunk) chunks.push(currentChunk.trim());
+      currentChunk = sentence;
+    }
+  }
+
+  if (currentChunk) chunks.push(currentChunk.trim());
+  return chunks;
 }
 
 // 🧠 MAIN FUNCTION
@@ -45,29 +65,38 @@ export default async function generateTTS({ storyData }) {
   for (const { key, text } of segments) {
     if (!text?.trim()) continue;
 
-    const outputName = `${safeTitle}_${key}.mp3`;
-    const outputPath = path.join(folderPath, outputName);
+    const chunks = splitTextIntoChunks(text, MAX_CHARS);
+    const chunkPaths = [];
 
-    try {
-      console.log(`🗣️ Generating TTS for: ${key}`);
-      await fetchTTS(
-        "https://www.openai.fm/api/generate",
-        text,
+    for (let i = 0; i < chunks.length; i++) {
+      const chunkText = chunks[i];
+      const chunkFile = `${safeTitle}_${key}_${i + 1}.mp3`;
+      const chunkPath = path.join(folderPath, chunkFile);
 
-        "coral",
-        "67612c8-4975-452f-af3f-d44cca8915e5",
-        outputPath,
-        __dirname
-      );
+      try {
+        console.log(`🗣️ Generating TTS for: ${key} (chunk ${i + 1})`);
+        await fetchTTS(
+          "https://www.openai.fm/api/generate",
+          chunkText,
+          "coral",
+          "67612c8-4975-452f-af3f-d44cca8915e5",
+          chunkPath,
+          __dirname
+        );
+        console.log(`✅ Stored chunk: ${chunkPath}`);
+        chunkPaths.push(chunkPath);
+        audioPaths.push(chunkPath);
 
-      console.log(`✅ Stored segment path: ${outputPath}`);
-      audioPaths.push(outputPath);
-      // 🔁 Immediately update temp_list.txt
-      const listContent = audioPaths.map((f) => `file '${f}'`).join("\n");
-      fs.writeFileSync(tempListPath, listContent);
-      await sleep(1000); // Wait 1s to prevent rate limit
-    } catch (err) {
-      console.error(`❌ Failed to fetch TTS for ${key}:`, err.message);
+        const listContent = audioPaths.map((f) => `file '${f}'`).join("\n");
+        fs.writeFileSync(tempListPath, listContent);
+        logBox(3, "sleep Time ...");
+        await sleep(3000);
+      } catch (err) {
+        console.error(
+          `❌ Failed to fetch TTS for ${key} chunk ${i + 1}:`,
+          err.message
+        );
+      }
     }
   }
 
