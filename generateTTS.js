@@ -44,6 +44,7 @@ export default async function generateTTS({ storyData }) {
     instructions = "",
   } = storyData;
 
+  console.log(`🧠 Generating TTS for: ${title}`);
   const safeTitle = sanitizeFilename(title);
   const folderPath = path.join("stories", safeTitle, "voiceover");
 
@@ -139,13 +140,14 @@ async function mergeVoiceWithBackground(
   // ✅ Step 2: Merge TTS voice files
   await new Promise((resolve, reject) => {
     ffmpeg()
-      .input(path.resolve(tempListPath))
+      .input(path.resolve(tempListPath)) // file list (concat method)
       .inputOptions(["-f", "concat", "-safe", "0"])
       .audioCodec("libmp3lame") // ✅ Force re-encode all files to MP3
       .audioBitrate("192k") // ✅ Ensure consistent bitrate
       .outputOptions(["-ar", "44100"]) // ✅ Sample rate: 44.1kHz (standard)
       .on("end", () => {
-        fs.unlinkSync(tempListPath); // 🧹 Clean up
+        console.log("✅ Voice merge complete");
+        fs.unlinkSync(tempListPath); // 🧹 Clean up temp list
         resolve();
       })
       .on("error", (err, stdout, stderr) => {

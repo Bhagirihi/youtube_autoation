@@ -10,6 +10,12 @@ Requirements:
 - Set the story in a **realistic Indian location** (village, hostel, road, apartment, forest, etc.).
 - Use **natural, flowing, scary Hindi** only — avoid English words.
 - Use **emotional depth** and **slow-burn tension**, not just jump scares.
+- Generate 5 clickbait-style Hindi YouTube titles for a horror story named "{STORY_TITLE}". The titles should be:
+  – Under 70 characters
+  – Emotionally intense and curiosity-driven
+  – Written in pure Hindi (not Hinglish/English)
+  – Designed to attract viewers to click instantly
+  – Must feel cinematic and chilling without revealing the twist
 - Each section must be at least:
   - intro: 1000+
   - build_up: 2500+
@@ -49,6 +55,12 @@ Requirements:
 4. Prioritize emotional depth, slow-burn fear, and psychological horror over cheap jump scares.
 
 Each section must be at least:
+- Generate 1 clickbait-style English YouTube titles for a horror story named "{STORY_TITLE}". The titles should be:
+  – Under 70 characters
+  – Emotionally intense and curiosity-driven
+  – Written in pure English (not Hindi)
+  – Designed to attract viewers to click instantly
+  – Must feel cinematic and chilling without revealing the twist
 - intro: 1000+ characters (mysterious & emotionally unsettling)
 - build_up: 2500+ characters (setting, characters, rising unease)
 - suspense: 3500+ characters (fear intensifies, psychological dread)
@@ -112,11 +124,9 @@ Structure: Return output as JSON in this format:
     "realistic image prompt in English",
     "... at least 8–10 tags"
   ],
-  "description": "3-line emotionally gripping teaser in English (for Wester",
+  "description": "3-line emotionally gripping teaser in Hindi according to Youtube Guidelines and trends.",
   "youtube_thumbnails": [
-    "prompt 1 for YouTube thumbnail",
-    "prompt 2",
-    "prompt 3 (optional)"
+    "prompt 1 for YouTube thumbnail According to the story",
   ]
 }
 
@@ -163,9 +173,7 @@ Return format (pure JSON):
   ],
   "description": "3-line emotionally chilling teaser in English",
   "youtube_thumbnails": [
-    "prompt 1 for YouTube thumbnail",
-    "prompt 2",
-    "prompt 3 (optional)"
+    "prompt 1 for YouTube thumbnail based on title",
   ]
 }
 

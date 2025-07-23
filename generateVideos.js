@@ -145,4 +145,5 @@ export default async function generateAIVideo(videoData) {
       })
       .run();
   });
+  return { ...videoData, videoPath: outputPath };
 }

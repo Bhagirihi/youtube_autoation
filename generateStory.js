@@ -19,10 +19,10 @@ function getRandomGeminiModel() {
   return models[randomIndex];
 }
 
-export default async function generateStory(storyData) {
+export default async function generateStory(selection) {
   console.log(
     `Generating Story for ${
-      storyData === "Hindi" ? "Horror Podcast Adda" : "Creeping Echoes"
+      selection === "Hindi" ? "Horror Podcast Adda" : "Creeping Echoes"
     }`
   );
   const GEMINI_KEY = process.env.GEMINI_API_KEY;
@@ -38,7 +38,7 @@ export default async function generateStory(storyData) {
   });
   await sleep(2000 + Math.random() * 3000); // 2–5 sec delay
   const storyPrompt =
-    storyData === "Hindi" ? await promptStory() : await promptEnglishStory();
+    selection === "Hindi" ? await promptStory() : await promptEnglishStory();
   const dynamicPromptsStory = `${storyPrompt}\n\n// Generate story seed: ${Date.now()}`;
 
   const { response } = await gen.generateContent(dynamicPromptsStory.trim());
@@ -49,9 +49,9 @@ export default async function generateStory(storyData) {
   const title = extractTitle(aiOutput.title);
   const safeTitle = sanitizeFilename(aiOutput.title);
   const storyUtilsPrompt =
-    storyData === "Hindi"
-      ? await promotEglishStoryUtils(...Object.values(aiOutput))
-      : await promptStoryUtils(...Object.values(aiOutput));
+    selection === "Hindi"
+      ? await promptStoryUtils(...Object.values(aiOutput))
+      : await promotEglishStoryUtils(...Object.values(aiOutput));
   const dynamicPromptsStoryUtils = `${storyUtilsPrompt}\n\n// Generate story seed: ${Date.now()}`;
 
   await sleep(2000 + Math.random() * 3000); // 2–5 sec delay
@@ -66,6 +66,7 @@ export default async function generateStory(storyData) {
 
   const StoryData = {
     title,
+    selection,
     ...aiOutput,
     ...aiOutputUtils,
   };
