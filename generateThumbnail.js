@@ -16,11 +16,10 @@ const __dirname = path.dirname(__filename);
 const ask = (q) => new Promise((resolve) => rl.question(q, resolve));
 
 // 🔧 Utility to convert title to folder-safe format
-const sanitizeTitle = (title) =>
-  title
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gi, "_");
+
+function sanitizeFilename(name) {
+  return name.replace(/[<>:"/\\|?*]+/g, "").replace(/\s+/g, "_");
+}
 
 export default async function uploadToYoutube(videoData) {
   console.log("Uploading video:", videoData);
@@ -28,7 +27,7 @@ export default async function uploadToYoutube(videoData) {
   const episode = await ask("Which Episode? ");
   rl.close();
 
-  const storyFolderName = sanitizeTitle(title); // "The Stillness Beneath" → "The_Stillness_Beneath"
+  const storyFolderName = sanitizeFilename(title); // "The Stillness Beneath" → "The_Stillness_Beneath"
   const thumbnailsDir = path.join(
     __dirname,
     "stories",
@@ -36,6 +35,7 @@ export default async function uploadToYoutube(videoData) {
     "images",
     "thumbnails"
   );
+
   const thumbnailsDirOut = path.join(
     __dirname,
     "stories",
@@ -60,41 +60,61 @@ export default async function uploadToYoutube(videoData) {
     selection === "Hindi" ? "thumbnail_Hindi.html" : "thumbnail_English.html";
   const template = await fs.readFile(htmlFile, "utf-8");
   const imageBuffer = await fs.readFile(imagePath);
-  const mimeType = imageFile.endsWith(".png") ? "image/png" : "image/jpeg";
+  const mimeType = imagePath.endsWith(".png") ? "image/png" : "image/jpeg";
   const base64Image = `data:${mimeType};base64,${imageBuffer.toString("base64")}`;
+
+  const thumbnailsDir_1 = path.join(__dirname, "logos", "T1.png");
+  const buffer = await fs.readFile(thumbnailsDir_1);
+  const base64Logo = `data:image/png;base64,${buffer.toString("base64")}`;
 
   // 🔧 Replace placeholders
   const html = template
     .replace("{{title}}", videoData.title || "Untitled")
     .replace("{{episode}}", episode)
-    .replace("{{image}}", base64Image);
+    .replace("{{image}}", base64Image)
+    .replace("{{image_1}}", base64Logo);
+  // .replace("{{image}}", `file://${imagePath}`);
 
   // 📸 Generate screenshot
-  const browser = await puppeteer.launch();
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ["--allow-file-access-from-files", "--enable-local-file-accesses"],
+  });
   const page = await browser.newPage();
   await page.setViewport({ width: 1920, height: 1080 });
+  console.log("📸 Generating thumbnail...", html);
   await page.setContent(html, { waitUntil: "networkidle0" });
 
   await page.evaluateHandle("document.fonts.ready");
   // ✅ Wait until image is loaded
-  await page.evaluate(
-    () =>
-      new Promise((resolve) => {
-        const img = document.querySelector(".bg-image");
-        if (img && img.complete) return resolve();
-        img.onload = resolve;
-        img.onerror = () => {
-          console.error("❌ Image failed to load");
-          resolve();
-        };
-      })
-  );
-  await page.screenshot({ path: outputThumbnailPath, fullPage: true });
+  // ✅ Wait until background image is applied to .bg div
 
-  await browser.close();
+  await page.evaluate(() => {
+    document.querySelectorAll("img[loading='lazy']").forEach((img) => {
+      img.loading = "eager";
+      img.fetchPriority = "high";
+    });
+  });
 
-  console.log("✅ Thumbnail generated: thumbnail.png");
-  console.log("🎬 Uploading video:", videoData.title);
+  await page.evaluate(async () => {
+    const selectors = Array.from(document.images).map((img) => {
+      if (img.complete) return;
+      return new Promise((resolve) => {
+        img.addEventListener("load", resolve);
+        img.addEventListener("error", resolve);
+      });
+    });
+    await Promise.all(selectors);
+  });
 
-  return { ...videoData, ...outputThumbnailPath };
+  setTimeout(async () => {
+    console.log("Hello after 2 seconds");
+    await page.screenshot({ path: outputThumbnailPath, fullPage: true });
+    await browser.close();
+
+    console.log("✅ Thumbnail generated: thumbnail.png");
+    console.log("🎬 Uploading video:", videoData.title);
+
+    return { ...videoData, ...outputThumbnailPath };
+  }, 2000);
 }

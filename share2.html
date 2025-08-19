@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="hi">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Horror Thumbnail 4K</title>
+    <meta name="viewport" content="width=3840, initial-scale=1" />
+
+
+    <link
+        href="https://fonts.googleapis.com/css2?family=Noto+Serif+Devanagari:wght@700;900&family=Teko:wght@600;700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 3840px;
+
+            height: 2160px;
+
+            overflow: hidden;
+            background: #1D2220;
+
+        }
+
+        .stage {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: grid;
+            place-items: center;
+            isolation: isolate;
+        }
+
+
+        .bg {
+            position: absolute;
+            inset: 0;
+            background: #1D2220 url("assets/bg.jpg") center/cover no-repeat;
+            filter: saturate(85%) brightness(0.8) contrast(1.05);
+            z-index: 0;
+        }
+
+        .vignette {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.6) 100%);
+            z-index: 1;
+        }
+
+        .grain {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            background-image:
+                repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.015) 0px, rgba(255, 255, 255, 0.015) 1px, transparent 2px, transparent 3px);
+            mix-blend-mode: overlay;
+            pointer-events: none;
+        }
+
+
+        .title-wrap {
+            position: relative;
+            z-index: 3;
+            width: 86%;
+            max-width: 3200px;
+            text-align: center;
+            padding: 80px 100px;
+        }
+
+        .title {
+            margin: 0;
+            font-family: "Noto Serif Devanagari", serif;
+            font-weight: 900;
+            line-height: 1.12;
+            letter-spacing: 0.5px;
+            font-size: 280px;
+
+            color: #C9C2A8;
+
+            text-shadow:
+                0 8px 24px rgba(0, 0, 0, 0.75),
+                0 2px 2px rgba(0, 0, 0, 0.9);
+
+            position: relative;
+            display: inline-block;
+        }
+
+        .title::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+
+            mix-blend-mode: multiply;
+            opacity: 0.25;
+            pointer-events: none;
+        }
+
+
+        .episode {
+            position: absolute;
+            top: 80px;
+            left: 80px;
+            z-index: 4;
+            font-family: "Teko", system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 120px;
+            letter-spacing: 1px;
+            color: #FFF;
+            padding: 18px 42px;
+            background: #8B0000;
+
+            border: 6px solid #2a0000;
+
+            box-shadow:
+                0 10px 30px rgba(0, 0, 0, 0.8),
+                inset 0 -8px 0 rgba(0, 0, 0, 0.35);
+            text-transform: uppercase;
+            clip-path: polygon(2% 0, 98% 0, 100% 20%, 100% 100%, 0 100%, 0 20%);
+        }
+
+        .episode small {
+            font-size: 70px;
+            vertical-align: top;
+            opacity: 0.95;
+        }
+
+
+        .brand {
+            position: absolute;
+            left: 80px;
+            bottom: 80px;
+            display: flex;
+            align-items: center;
+            gap: 28px;
+            z-index: 4;
+        }
+
+        .logo {
+            width: 220px;
+            height: 220px;
+            border-radius: 220px;
+            overflow: hidden;
+            background: #0b0b0b url("assets/logo.png") center/cover no-repeat;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.8);
+
+        }
+
+        .brand-text {
+            font-family: "Teko", system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 140px;
+            letter-spacing: 6px;
+            color: #D01414;
+
+            text-shadow:
+                0 10px 30px rgba(0, 0, 0, 0.85),
+                0 2px 0 rgba(0, 0, 0, 0.9);
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+
+        .subscribe {
+            position: absolute;
+            right: 80px;
+            bottom: 80px;
+            z-index: 4;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 28px 46px 28px 46px;
+            border-radius: 40px;
+            font-family: "Teko", system-ui, sans-serif;
+            font-weight: 700;
+            font-size: 120px;
+            letter-spacing: 3px;
+            color: #FFFFFF;
+            background: #FF0000;
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.85), inset 0 -10px 0 rgba(0, 0, 0, 0.25);
+            border: 6px solid #9b0000;
+            text-transform: uppercase;
+        }
+
+        .subscribe::after {
+            content: "☝️";
+            font-size: 120px;
+            margin-left: 24px;
+            transform: translateY(-6px);
+            filter: drop-shadow(0 4px 2px rgba(0, 0, 0, 0.6));
+        }
+
+
+        .title {
+            text-wrap: balance;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="stage">
+        <div class="bg"></div>
+        <div class="vignette"></div>
+        <div class="grain"></div>
+
+
+        <div class="episode" id="epBadge">EPISODE <small id="epNum">18</small></div>
+
+
+        <div class="title-wrap">
+            <h1 class="title" id="titleText">क्या वो भी इस खंडहर का हिस्सा बन जाएगा?</h1>
+        </div>
+
+
+        <div class="brand">
+            <div class="logo" id="logoBox" aria-label="channel logo"></div>
+            <div class="brand-text" id="brandText">HORROR PODCAST ADDA</div>
+        </div>
+
+
+        <div class="subscribe">Subscribe</div>
+    </div>
+
+    <script>
+
+        const CONFIG = {
+            title: "क्या वो भी इस खंडहर का हिस्सा बन जाएगा?",
+            episode: "18",
+            brand: "HORROR PODCAST ADDA",
+            bg: "logos/T1.png",
+            logo: "logos/LOGO_BLANK.png"
+        };
+
+
+        const params = new URLSearchParams(location.search);
+        const get = (k, fallback) => params.get(k) || fallback;
+
+        const title = get("title", CONFIG.title);
+        const ep = get("ep", CONFIG.episode);
+        const brand = get("brand", CONFIG.brand);
+        const bg = get("bg", CONFIG.bg);
+        const logo = get("logo", CONFIG.logo);
+
+
+        document.getElementById("titleText").textContent = title;
+        document.getElementById("epNum").textContent = ep;
+        document.getElementById("brandText").textContent = brand;
+
+
+        document.querySelector(".bg").style.backgroundImage = `url("${bg}")`;
+        document.getElementById("logoBox").style.backgroundImage = `url("${logo}")`;
+    </script>
+</body>
+
+</html>

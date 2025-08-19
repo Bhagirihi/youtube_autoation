@@ -17,6 +17,7 @@ function sanitizeFilename(name) {
 
 // Main video generation function
 export default async function generateAIVideo(videoData) {
+  console.log("📼 Generating video:", videoData);
   const { title } = videoData;
 
   const safeTitle = sanitizeFilename(title);
@@ -109,6 +110,7 @@ export default async function generateAIVideo(videoData) {
       .videoCodec("libx264")
       .audioCodec("aac")
       .outputOptions([
+
         "-vf",
         "scale=1920:1080,format=yuv420p,eq=brightness=-0.15:contrast=1.2,vignette",
         "-pix_fmt",
@@ -121,6 +123,7 @@ export default async function generateAIVideo(videoData) {
         "0:v:0",
         "-map",
         "1:a:0",
+        "-ac", "2",
         "-shortest",
         "-tune",
         "stillimage",
