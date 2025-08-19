@@ -17,7 +17,7 @@ const videoFolderHPA = path.resolve(__dirname, "bgm/HPA/fixed");
 const videoFolderCE = path.resolve(__dirname, "bgm/CE");
 const outputListPath = path.resolve(__dirname, "tempList.txt");
 
-export default async function generateFinalVideo(videoData) {
+export default async function generateFinalVideo({ videoData }) {
   const { title, selection } = videoData;
   const safeTitle = await sanitizeFilename(title);
   console.log("📼 Processing video:", safeTitle, title, videoData);
