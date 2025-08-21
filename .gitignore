@@ -9,3 +9,4 @@ node_modules/
 
 # Story output
 stories/
+client_secret_*.json

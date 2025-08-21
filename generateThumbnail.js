@@ -4,6 +4,10 @@ import puppeteer from "puppeteer";
 import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "node:url";
+import { google } from "googleapis";
+
+const API_KEY = process.env.YOUTUBE_API_KEY; // Replace with your API key
+const youtube = google.youtube({ version: "v3", auth: API_KEY });
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -21,12 +25,50 @@ function sanitizeFilename(name) {
   return name.replace(/[<>:"/\\|?*]+/g, "").replace(/\s+/g, "_");
 }
 
+async function getChannelIdFromHandle(handle) {
+  const res = await youtube.search.list({
+    part: "snippet",
+    q: handle, // e.g. "@HorrorPodcastAdda"
+    type: "channel",
+    maxResults: 1,
+  });
+
+  if (res.data.items && res.data.items.length > 0) {
+    return res.data.items[0].snippet.channelId;
+  } else {
+    throw new Error("Channel not found");
+  }
+}
+
+async function staticsToYoutube() {
+  try {
+    // Step 1: Resolve @handle → channelId
+    const channelId = await getChannelIdFromHandle("@HorrorPodcastAdda");
+
+    // Step 2: Fetch stats
+    const res = await youtube.channels.list({
+      part: "statistics",
+      id: channelId,
+    });
+
+    if (res.data.items && res.data.items.length > 0) {
+      const stats = res.data.items[0].statistics;
+      console.log(`📺 Total Videos: ${stats.videoCount}`);
+      return stats.videoCount;
+    } else {
+      console.log("❌ No stats found");
+      return null;
+    }
+  } catch (err) {
+    console.error("Error:", err.message);
+  }
+}
+
 export default async function uploadToYoutube(videoData) {
   console.log("Uploading video:", videoData);
   const { title, selection } = videoData;
-  const episode = await ask("Which Episode? ");
-  rl.close();
-
+  const episode = await staticsToYoutube();
+  var NewEpisode = Number(episode) + 1;
   const storyFolderName = sanitizeFilename(title); // "The Stillness Beneath" → "The_Stillness_Beneath"
   const thumbnailsDir = path.join(
     __dirname,
@@ -70,7 +112,7 @@ export default async function uploadToYoutube(videoData) {
   // 🔧 Replace placeholders
   const html = template
     .replace("{{title}}", videoData.title || "Untitled")
-    .replace("{{episode}}", episode)
+    .replace("{{episode}}", NewEpisode)
     .replace("{{image}}", base64Image)
     .replace("{{image_1}}", base64Logo);
   // .replace("{{image}}", `file://${imagePath}`);
@@ -107,14 +149,28 @@ export default async function uploadToYoutube(videoData) {
     await Promise.all(selectors);
   });
 
-  setTimeout(async () => {
-    console.log("Hello after 2 seconds");
-    await page.screenshot({ path: outputThumbnailPath, fullPage: true });
-    await browser.close();
+  const screenshotBuffer = await page.screenshot({
+    type: "png",
+    path: outputThumbnailPath,
+    fullPage: true,
+  });
+  // Compress further with sharp if >2MB
+  let finalBuffer = screenshotBuffer;
+  if (screenshotBuffer.length > 2 * 1024 * 1024) {
+    finalBuffer = await sharp(screenshotBuffer)
+      .png({ quality: 70 }) // lower quality if needed
+      .toBuffer();
+  }
 
-    console.log("✅ Thumbnail generated: thumbnail.png");
-    console.log("🎬 Uploading video:", videoData.title);
+  // Save to file
+  await fs.writeFile(outputThumbnailPath, finalBuffer);
 
-    return { ...videoData, ...outputThumbnailPath };
-  }, 2000);
+  await browser.close();
+
+  console.log(
+    `✅ Thumbnail generated: ${outputThumbnailPath} (${(finalBuffer.length / 1024).toFixed(1)} KB)`
+  );
+  console.log("🎬 Uploading video:", videoData.title);
+
+  return { ...videoData, ...outputThumbnailPath };
 }

@@ -88,6 +88,10 @@ Structure: Return output as JSON in this format:
     "realistic image prompt in English",
     "... at least 8–10 tags"
   ],
+  "youtube_thumbnails": [
+    "realistic image prompt in English",
+    "... at least 2–3 tags"
+  ]
 }
 
 ⚠️ Return only raw JSON — no Markdown, no comments, no extra explanations.

@@ -24,7 +24,11 @@ export default async function generateAIVideo(videoData) {
   const storyFolder = path.join("stories", safeTitle);
 
   const imageFolder = path.join(storyFolder, "images");
-  const audioPath = path.join(storyFolder, "voiceover", `${safeTitle}.mp3`);
+  const audioPath = path.join(
+    storyFolder,
+    "voiceover",
+    `${safeTitle}_merge.mp3`
+  );
   const outputFolder = path.join(storyFolder, "output");
   const outputPath = path.join(outputFolder, `${safeTitle}.mp4`);
   const inputListFile = path.join(imageFolder, "input_images.txt");
@@ -110,7 +114,6 @@ export default async function generateAIVideo(videoData) {
       .videoCodec("libx264")
       .audioCodec("aac")
       .outputOptions([
-
         "-vf",
         "scale=1920:1080,format=yuv420p,eq=brightness=-0.15:contrast=1.2,vignette",
         "-pix_fmt",
@@ -123,7 +126,8 @@ export default async function generateAIVideo(videoData) {
         "0:v:0",
         "-map",
         "1:a:0",
-        "-ac", "2",
+        "-ac",
+        "2",
         "-shortest",
         "-tune",
         "stillimage",
