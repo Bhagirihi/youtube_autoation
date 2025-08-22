@@ -37,7 +37,7 @@ function getRandomVoice() {
   const constants = [
     "alloy",
     "ash",
-    "coral",
+
     "onyx",
     "nova",
     "shimmer",
@@ -185,9 +185,10 @@ async function mergeVoiceWithBackground(
   bgmPath = bgm,
   outputPath = out
 ) {
+  const safeMergeTitle = sanitizeFilename(safeTitle);
   const tempDir = path.dirname(outputPath);
   const tempListPath = path.join(tempDir, "temp_list.txt");
-  const mergedVoicePath = path.join(tempDir, `${safeTitle}_merge.mp3`);
+  const mergedVoicePath = path.join(tempDir, `${safeMergeTitle}_merge.mp3`);
 
   // ✅ Step 1: Create temp_list.txt with absolute paths
   fs.writeFileSync(
@@ -234,7 +235,7 @@ async function mergeVoiceWithBackground(
         .input(mergedVoicePath)
         .input(bgmPath)
         .complexFilter([
-          "[1:a]volume=0.10, aecho=0.8:0.9:1200:0.25, apad[a1]", // BGM with echo
+          "[1:a]volume=0.15, aecho=0.8:0.9:1200:0.25, apad[a1]", // BGM with echo
           "[0:a]volume=3.0", // Voice clear & normalized
           "[a0][a1]amix=inputs=2:duration=first:dropout_transition=3, pan=stereo|c0=c0|c1=c1",
         ])

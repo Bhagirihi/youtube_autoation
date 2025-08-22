@@ -346,118 +346,118 @@ export default async function uploadToYoutube(videoData) {
             const fileSize = fs.statSync(videoData.finalOutputPath).size;
             const publishDate = await getNextPublishDate(youtube);
 
-            //             await youtube.videos.insert(
-            //               {
-            //                 part: ["snippet", "status"],
-            //                 requestBody: {
-            //                   snippet: {
-            //                     title: `${videoData.title_new} | Horror Podcast Adda | Hindi Horror Story`,
-            //                     description: `${videoData.title_new} | Horror Podcast Adda | Hindi Horror Story |
+                        await youtube.videos.insert(
+                          {
+                            part: ["snippet", "status"],
+                            requestBody: {
+                              snippet: {
+                                title: `${videoData.title_new} | Horror Podcast Adda | Hindi Horror Story`,
+                                description: `${videoData.title_new} | Horror Podcast Adda | Hindi Horror Story |
 
-            //                  ${videoData.story_outline}
+                             ${videoData.story_outline}
 
-            // #horrorpodcastadda #hindistoryhorror  #hindistory #storyinhindi #horrorpodacast  #bhootiyakahani #scarystory
+            #horrorpodcastadda #hindistoryhorror  #hindistory #storyinhindi #horrorpodacast  #bhootiyakahani #scarystory
 
-            // 🎧 Horror Podcast Adda — डर का असली ठिकाना!
-            // आपका स्वागत है Horror Podcast Adda पर, जहाँ हर कहानी डर, सस्पेंस और रहस्य की एक नई दुनिया रचती है।
-            // हम लाते हैं हिंदी हॉरर स्टोरीज़, जो आपकी कल्पना और हकीकत की सीमाओं को धुंधला कर दें।
+            🎧 Horror Podcast Adda — डर का असली ठिकाना!
+            आपका स्वागत है Horror Podcast Adda पर, जहाँ हर कहानी डर, सस्पेंस और रहस्य की एक नई दुनिया रचती है।
+            हम लाते हैं हिंदी हॉरर स्टोरीज़, जो आपकी कल्पना और हकीकत की सीमाओं को धुंधला कर दें।
 
-            // 👻 यहाँ आपको मिलेगा:
-            // 1️⃣ Real Ghost Stories – सच्ची भूतिया घटनाएँ और अलौकिक अनुभव
-            // 2️⃣ Chudail & Witch Tales – रहस्यमयी चुड़ैल और प्रेतात्माओं की कहानियाँ
-            // 3️⃣ Psychological Horror – मनोवैज्ञानिक और मानसिक डरावनी कहानियाँ
-            // 4️⃣ Dark Horror Podcasts – गहरी आवाज़ और सस्पेंसफुल बैकग्राउंड म्यूज़िक के साथ
-            // 5️⃣ Scary Fiction & Reality Mix – काल्पनिक और वास्तविक डर का अनोखा संगम
+            👻 यहाँ आपको मिलेगा:
+            1️⃣ Real Ghost Stories – सच्ची भूतिया घटनाएँ और अलौकिक अनुभव
+            2️⃣ Chudail & Witch Tales – रहस्यमयी चुड़ैल और प्रेतात्माओं की कहानियाँ
+            3️⃣ Psychological Horror – मनोवैज्ञानिक और मानसिक डरावनी कहानियाँ
+            4️⃣ Dark Horror Podcasts – गहरी आवाज़ और सस्पेंसफुल बैकग्राउंड म्यूज़िक के साथ
+            5️⃣ Scary Fiction & Reality Mix – काल्पनिक और वास्तविक डर का अनोखा संगम
 
-            // 📅 हर हफ्ते नई हिंदी हॉरर स्टोरी!
-            // 🎧 अगर आपको भूत-प्रेत, डरावनी कहानियाँ और हॉरर पॉडकास्ट सुनना पसंद है, तो यह चैनल आपके लिए है।
+            📅 हर हफ्ते नई हिंदी हॉरर स्टोरी!
+            🎧 अगर आपको भूत-प्रेत, डरावनी कहानियाँ और हॉरर पॉडकास्ट सुनना पसंद है, तो यह चैनल आपके लिए है।
 
-            // 🔔 अभी Subscribe करें और डर को महसूस करें:
-            // 👉 https://youtube.com/@HorrorPodcastAdda
+            🔔 अभी Subscribe करें और डर को महसूस करें:
+            👉 https://youtube.com/@HorrorPodcastAdda
 
-            // 📲 हमसे जुड़े रहिए:
-            // 🅾 Instagram: https://www.instagram.com/horror_podcast_adda
+            📲 हमसे जुड़े रहिए:
+            🅾 Instagram: https://www.instagram.com/horror_podcast_adda
 
-            // 📩 Business / Collaboration: Horrorpodcastadda@gmail.com
+            📩 Business / Collaboration: Horrorpodcastadda@gmail.com
 
-            // hindi horror podcast, hindi horror story, new hindi horror story, new horror story in hindi, bhoot ki kahani, darawani kahani, chudail, bhoot story, horror video, horror stories channel, ghost story in hindi, bhutiya kahani, creepy podcast in hindi, scary story hindi, horror podcast india, supernatural stories hindi, true horror hindi, डरावनी कहानियाँ, chudail horror story`,
-            //                     tags: [
-            //                       "Creeping Echoes",
-            //                       "Horror Podcast Adda",
-            //                       "animated stories",
-            //                       "chilling stories",
-            //                       "creepy encounters",
-            //                       "creepy stories",
-            //                       "ghost stories",
-            //                       "ghost story in hindi",
-            //                       "hindi horror stories",
-            //                       "hindi horror story",
-            //                       "horror",
-            //                       "horror movie hindi",
-            //                       "horror podcast",
-            //                       "horror podcast hindi",
-            //                       "horror stories",
-            //                       "horror stories in hindi",
-            //                       "horror story",
-            //                       "indian horror story",
-            //                       "scary encounters",
-            //                       "scary video",
-            //                       "sinister stories",
-            //                       "true scary stories",
-            //                       "urban legends",
-            //                     ],
-            //                     categoryId: "24",
-            //                     defaultLanguage: "hi",
-            //                     defaultAudioLanguage: "hi",
-            //                     recordingDate: new Date().toISOString(),
-            //                   },
-            //                   status: {
-            //                     privacyStatus: "private",
-            //                     publishAt: publishDate.toISOString(), // ✅ correct RFC 3339 UTC
-            //                     selfDeclaredMadeForKids: false,
-            //                     license: "youtube",
-            //                     embeddable: true,
-            //                     publicStatsViewable: true,
-            //                   },
-            //                 },
-            //                 media: { body: fs.createReadStream(videoData.finalOutputPath) },
-            //               },
-            //               {
-            //                 onUploadProgress: (evt) => {
-            //                   const progress = (evt.bytesRead / fileSize) * 100;
-            //                   process.stdout.clearLine(0);
-            //                   process.stdout.cursorTo(0);
-            //                   process.stdout.write(`Uploading: ${progress.toFixed(2)}%`);
-            //                 },
-            //               },
-            //               (err, response) => {
-            //                 if (err) return reject("❌ Upload Error: " + err);
+            hindi horror podcast, hindi horror story, new hindi horror story, new horror story in hindi, bhoot ki kahani, darawani kahani, chudail, bhoot story, horror video, horror stories channel, ghost story in hindi, bhutiya kahani, creepy podcast in hindi, scary story hindi, horror podcast india, supernatural stories hindi, true horror hindi, डरावनी कहानियाँ, chudail horror story`,
+                                tags: [
+                                  "Creeping Echoes",
+                                  "Horror Podcast Adda",
+                                  "animated stories",
+                                  "chilling stories",
+                                  "creepy encounters",
+                                  "creepy stories",
+                                  "ghost stories",
+                                  "ghost story in hindi",
+                                  "hindi horror stories",
+                                  "hindi horror story",
+                                  "horror",
+                                  "horror movie hindi",
+                                  "horror podcast",
+                                  "horror podcast hindi",
+                                  "horror stories",
+                                  "horror stories in hindi",
+                                  "horror story",
+                                  "indian horror story",
+                                  "scary encounters",
+                                  "scary video",
+                                  "sinister stories",
+                                  "true scary stories",
+                                  "urban legends",
+                                ],
+                                categoryId: "24",
+                                defaultLanguage: "hi",
+                                defaultAudioLanguage: "hi",
+                                recordingDate: new Date().toISOString(),
+                              },
+                              status: {
+                                privacyStatus: "private",
+                                publishAt: publishDate.toISOString(), // ✅ correct RFC 3339 UTC
+                                selfDeclaredMadeForKids: false,
+                                license: "youtube",
+                                embeddable: true,
+                                publicStatsViewable: true,
+                              },
+                            },
+                            media: { body: fs.createReadStream(videoData.finalOutputPath) },
+                          },
+                          {
+                            onUploadProgress: (evt) => {
+                              const progress = (evt.bytesRead / fileSize) * 100;
+                              process.stdout.clearLine(0);
+                              process.stdout.cursorTo(0);
+                              process.stdout.write(`Uploading: ${progress.toFixed(2)}%`);
+                            },
+                          },
+                          (err, response) => {
+                            if (err) return reject("❌ Upload Error: " + err);
 
-            //                 console.log(`\n✅ Video uploaded! ID: ${response.data.id}`);
-            //                 console.log(`📅 Scheduled: ${publishDate}`);
+                            console.log(`\n✅ Video uploaded! ID: ${response.data.id}`);
+                            console.log(`📅 Scheduled: ${publishDate}`);
 
-            //                 // Upload thumbnail
-            //                 youtube.thumbnails.set(
-            //                   {
-            //                     videoId: response.data.id,
-            //                     media: {
-            //                       body: fs.createReadStream(videoData.outputThumbnailPath),
-            //                     },
-            //                   },
-            //                   (thumbErr) => {
-            //                     if (thumbErr)
-            //                       return reject("❌ Thumbnail Error: " + thumbErr);
-            //                     console.log("✅ Thumbnail uploaded successfully!");
+                            // Upload thumbnail
+                            youtube.thumbnails.set(
+                              {
+                                videoId: response.data.id,
+                                media: {
+                                  body: fs.createReadStream(videoData.outputThumbnailPath),
+                                },
+                              },
+                              (thumbErr) => {
+                                if (thumbErr)
+                                  return reject("❌ Thumbnail Error: " + thumbErr);
+                                console.log("✅ Thumbnail uploaded successfully!");
 
-            //                     resolve({
-            //                       videoId: response.data.id,
-            //                       scheduledAt: publishDate,
-            //                       ...videoData,
-            //                     });
-            //                   }
-            //                 );
-            //               }
-            //             );
+                                resolve({
+                                  videoId: response.data.id,
+                                  scheduledAt: publishDate,
+                                  ...videoData,
+                                });
+                              }
+                            );
+                          }
+                        );
           } catch (e) {
             reject(e);
           }

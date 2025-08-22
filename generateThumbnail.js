@@ -5,6 +5,7 @@ import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "node:url";
 import { google } from "googleapis";
+import sharp from "sharp";
 
 const API_KEY = process.env.YOUTUBE_API_KEY; // Replace with your API key
 const youtube = google.youtube({ version: "v3", auth: API_KEY });

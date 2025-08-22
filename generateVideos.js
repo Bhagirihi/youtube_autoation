@@ -29,6 +29,7 @@ export default async function generateAIVideo(videoData) {
     "voiceover",
     `${safeTitle}_merge.mp3`
   );
+  console.log("🎞️ Audio Path:", audioPath);
   const outputFolder = path.join(storyFolder, "output");
   const outputPath = path.join(outputFolder, `${safeTitle}.mp4`);
   const inputListFile = path.join(imageFolder, "input_images.txt");
