@@ -14,12 +14,25 @@ name: YouTube Automation
 
 on:
   schedule:
-    # Run once per day at 02:00 UTC (adjust to your timezone)
+    # 1 hr apart (IST = UTC+5:30):
+    # 02:00 UTC = 07:30 IST – Horror Podcast Adda
     - cron: "0 2 * * *"
-  workflow_dispatch: # Allow manual run
-
-env:
-  CHANNEL: CinePlotDecodeShorts # Lightest; use HorrorPodcastAdda or CinePlotDecode for full pipelines
+    # 03:00 UTC = 08:30 IST – CinePlot Decode (full)
+    - cron: "0 3 * * *"
+    # 04:00 UTC = 09:30 IST – CinePlot Decode (Shorts)
+    - cron: "0 4 * * *"
+  workflow_dispatch: # Manual run: choose channel or run all 3
+    inputs:
+      channel:
+        description: "Channel to run (or leave empty to run all 3 in sequence)"
+        required: false
+        default: ""
+        type: choice
+        options:
+          - ""
+          - HorrorPodcastAdda
+          - CinePlotDecode
+          - CinePlotDecodeShorts
 
 jobs:
   run-pipeline:
@@ -43,7 +56,6 @@ jobs:
           sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
           sudo chmod a+rx /usr/local/bin/yt-dlp
 
-      # Puppeteer/Chromium deps (only needed for HorrorPodcastAdda thumbnails)
       - name: Install Puppeteer/Chromium deps
         run: |
           sudo apt-get install -y --no-install-recommends \
@@ -86,12 +98,30 @@ jobs:
       - name: Install npm deps
         run: npm ci
 
-      - name: Run pipeline
+      # Scheduled run: pick channel from cron. Manual run: use input or run all 3.
+      - name: Set channel(s) to run
+        id: channels
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            case "${{ github.event.schedule }}" in
+              "0 2 * * *") echo "channels=HorrorPodcastAdda" >> $GITHUB_OUTPUT ;;
+              "0 3 * * *") echo "channels=CinePlotDecode" >> $GITHUB_OUTPUT ;;
+              *) echo "channels=CinePlotDecodeShorts" >> $GITHUB_OUTPUT ;;
+            esac
+          elif [ -n "${{ github.event.inputs.channel }}" ]; then
+            echo "channels=${{ github.event.inputs.channel }}" >> $GITHUB_OUTPUT
+          else
+            echo "channels=HorrorPodcastAdda CinePlotDecode CinePlotDecodeShorts" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run pipeline(s) – post to YouTube
         env:
-          CHANNEL: ${{ env.CHANNEL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # Add other .env vars as secrets, e.g. SUPADATA_API_KEY
-        run: node run-scheduled.js
+        run: |
+          for ch in ${{ steps.channels.outputs.channels }}; do
+            echo "=== Running $ch ==="
+            CHANNEL="$ch" node run-scheduled.js || true
+          done
 
       - name: Save state (processed / uploaded lists)
         if: always()
