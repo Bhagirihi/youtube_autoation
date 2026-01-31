@@ -9,16 +9,19 @@
 # Add env vars for .env if needed (e.g. SUPADATA_API_KEY, UNSPLASH_ACCESS_KEY).
 #
 # Optional: GOOGLE_CLIENT_SECRET_JSON – contents of client_secret_....json if you don’t commit it.
+#
+# IMPORTANT: Scheduled runs only work from the repo’s DEFAULT BRANCH. If this workflow
+# is on branch HPACPD and default is main, change default to HPACPD (Settings → General → Default branch).
 
 name: YouTube Automation
 
 on:
   schedule:
     # Tue, Thu, Sat, Sun only; 1 hr apart (IST = UTC+5:30). 0=Sun, 2=Tue, 4=Thu, 6=Sat
-    # 13:30 UTC = 19:00 IST – Horror Podcast Adda
-    - cron: "30 13 * * 0,2,4,6"
-    # 14:30 UTC = 20:00 IST – CinePlot Decode (full)
-    - cron: "30 14 * * 0,2,4,6"
+    # 14:00 UTC = 19:30 IST – Horror Podcast Adda
+    - cron: "0 14 * * 0,2,4,6"
+    # 15:00 UTC = 20:30 IST – CinePlot Decode (full)
+    - cron: "0 15 * * 0,2,4,6"
     # 15:30 UTC = 21:00 IST – CinePlot Decode (Shorts)
     - cron: "30 15 * * 0,2,4,6"
   workflow_dispatch: # Manual run: choose channel or run all 3
@@ -105,8 +108,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             case "${{ github.event.schedule }}" in
-              "30 13 * * 0,2,4,6") echo "channels=HorrorPodcastAdda" >> $GITHUB_OUTPUT ;;
-              "30 14 * * 0,2,4,6") echo "channels=CinePlotDecode" >> $GITHUB_OUTPUT ;;
+              "0 14 * * 0,2,4,6") echo "channels=HorrorPodcastAdda" >> $GITHUB_OUTPUT ;;
+              "0 15 * * 0,2,4,6") echo "channels=CinePlotDecode" >> $GITHUB_OUTPUT ;;
               *) echo "channels=CinePlotDecodeShorts" >> $GITHUB_OUTPUT ;;
             esac
           elif [ -n "${{ github.event.inputs.channel }}" ]; then
