@@ -89,9 +89,10 @@ jobs:
           HORROR_PODCAST_ADDA_TOKEN_JSON: ${{ secrets.HORROR_PODCAST_ADDA_TOKEN_JSON }}
 
       - name: Write Google client secret (optional)
-        if: ${{ secrets.GOOGLE_CLIENT_SECRET_JSON != '' }}
         run: |
-          echo "$GOOGLE_CLIENT_SECRET_JSON" > src/auth/client_secret_944372979454-a2ero9ndeopgpvvqidgauo1m8cqhr64k.apps.googleusercontent.com.json
+          if [ -n "$GOOGLE_CLIENT_SECRET_JSON" ]; then
+            echo "$GOOGLE_CLIENT_SECRET_JSON" > src/auth/client_secret_944372979454-a2ero9ndeopgpvvqidgauo1m8cqhr64k.apps.googleusercontent.com.json
+          fi
         env:
           GOOGLE_CLIENT_SECRET_JSON: ${{ secrets.GOOGLE_CLIENT_SECRET_JSON }}
 
