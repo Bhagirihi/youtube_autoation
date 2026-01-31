@@ -14,13 +14,13 @@ name: YouTube Automation
 
 on:
   schedule:
-    # 1 hr apart (IST = UTC+5:30):
-    # 02:00 UTC = 07:30 IST – Horror Podcast Adda
-    - cron: "0 2 * * *"
-    # 03:00 UTC = 08:30 IST – CinePlot Decode (full)
-    - cron: "0 3 * * *"
-    # 04:00 UTC = 09:30 IST – CinePlot Decode (Shorts)
-    - cron: "0 4 * * *"
+    # Tue, Thu, Sat, Sun only; 1 hr apart (IST = UTC+5:30). 0=Sun, 2=Tue, 4=Thu, 6=Sat
+    # 13:30 UTC = 19:00 IST – Horror Podcast Adda
+    - cron: "30 13 * * 0,2,4,6"
+    # 14:30 UTC = 20:00 IST – CinePlot Decode (full)
+    - cron: "30 14 * * 0,2,4,6"
+    # 15:30 UTC = 21:00 IST – CinePlot Decode (Shorts)
+    - cron: "30 15 * * 0,2,4,6"
   workflow_dispatch: # Manual run: choose channel or run all 3
     inputs:
       channel:
@@ -105,8 +105,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "schedule" ]; then
             case "${{ github.event.schedule }}" in
-              "0 2 * * *") echo "channels=HorrorPodcastAdda" >> $GITHUB_OUTPUT ;;
-              "0 3 * * *") echo "channels=CinePlotDecode" >> $GITHUB_OUTPUT ;;
+              "30 13 * * 0,2,4,6") echo "channels=HorrorPodcastAdda" >> $GITHUB_OUTPUT ;;
+              "30 14 * * 0,2,4,6") echo "channels=CinePlotDecode" >> $GITHUB_OUTPUT ;;
               *) echo "channels=CinePlotDecodeShorts" >> $GITHUB_OUTPUT ;;
             esac
           elif [ -n "${{ github.event.inputs.channel }}" ]; then
