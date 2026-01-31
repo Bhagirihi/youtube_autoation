@@ -1,0 +1,102 @@
+# YouTube Automation – run pipeline on a schedule (no laptop needed).
+# Uses run-scheduled.js; installs FFmpeg, yt-dlp; persists "already uploaded" lists via cache.
+#
+# Required secrets (Repo → Settings → Secrets and variables → Actions):
+#   CINEPLOT_TOKEN_JSON   – contents of src/auth/CinePlotDecode.token.json (for uploads)
+#   GEMINI_API_KEY       – (optional, for CinePlotDecode full / HPA) Gemini API key
+# Add env vars for .env if needed (e.g. SUPADATA_API_KEY for transcript).
+#
+# Optional: GOOGLE_CLIENT_SECRET_JSON – contents of client_secret_....json if you don’t commit it.
+
+name: YouTube Automation
+
+on:
+  schedule:
+    # Run once per day at 02:00 UTC (adjust to your timezone)
+    - cron: "0 2 * * *"
+  workflow_dispatch: # Allow manual run
+
+env:
+  CHANNEL: CinePlotDecodeShorts # Lightest; use HorrorPodcastAdda or CinePlotDecode for full pipelines
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install system deps (FFmpeg, yt-dlp)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+          sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
+          sudo chmod a+rx /usr/local/bin/yt-dlp
+
+      # Puppeteer/Chromium deps (only needed for HorrorPodcastAdda thumbnails)
+      - name: Install Puppeteer/Chromium deps
+        run: |
+          sudo apt-get install -y --no-install-recommends \
+            fonts-liberation libasound2 libatk-bridge2.0-0 libatk1.0-0 libcups2 \
+            libdbus-1-3 libdrm2 libgbm1 libgtk-3-0 libnspr4 libnss3 libxcomposite1 \
+            libxdamage1 libxfixes3 libxkbcommon0 libxrandr2 xdg-utils
+        continue-on-error: true
+
+      - name: Restore state (processed / uploaded lists)
+        uses: actions/cache/restore@v4
+        id: restore-state
+        with:
+          path: .github/yt-state
+          key: yt-automation-state-v1
+
+      - name: Place state files for run
+        run: |
+          mkdir -p .github/yt-state src/output/cinePlotDecode src/refDoc
+          [ -f .github/yt-state/processed_videos.json ] && cp .github/yt-state/processed_videos.json src/output/cinePlotDecode/ || true
+          [ -f .github/yt-state/uploaded_shorts.json ] && cp .github/yt-state/uploaded_shorts.json src/refDoc/ || true
+
+      - name: Write YouTube token from secret
+        run: |
+          mkdir -p src/auth
+          echo "$CINEPLOT_TOKEN_JSON" > src/auth/CinePlotDecode.token.json
+        env:
+          CINEPLOT_TOKEN_JSON: ${{ secrets.CINEPLOT_TOKEN_JSON }}
+
+      - name: Write Google client secret (optional)
+        if: ${{ secrets.GOOGLE_CLIENT_SECRET_JSON != '' }}
+        run: |
+          echo "$GOOGLE_CLIENT_SECRET_JSON" > src/auth/client_secret_944372979454-a2ero9ndeopgpvvqidgauo1m8cqhr64k.apps.googleusercontent.com.json
+        env:
+          GOOGLE_CLIENT_SECRET_JSON: ${{ secrets.GOOGLE_CLIENT_SECRET_JSON }}
+
+      - name: Install npm deps
+        run: npm ci
+
+      - name: Run pipeline
+        env:
+          CHANNEL: ${{ env.CHANNEL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Add other .env vars as secrets, e.g. SUPADATA_API_KEY
+        run: node run-scheduled.js
+
+      - name: Save state (processed / uploaded lists)
+        if: always()
+        run: |
+          mkdir -p .github/yt-state
+          [ -f src/output/cinePlotDecode/processed_videos.json ] && cp src/output/cinePlotDecode/processed_videos.json .github/yt-state/ || true
+          [ -f src/refDoc/uploaded_shorts.json ] && cp src/refDoc/uploaded_shorts.json .github/yt-state/ || true
+
+      - name: Cache state for next run
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .github/yt-state
+          key: yt-automation-state-v1

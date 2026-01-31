@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Horror Podcast Adda – YouTube Thumbnail</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap"
+        rel="stylesheet">
+    <style>
+        /*
+        *** FONT FACE DECLARATIONS ***
+        NOTE: These fonts must be available in the same directory (or path) as this HTML file.
+        (e.g., HelveticaWorld.ttf, PerandoryCondensed.ttf, EDO.ttf, LACQUER.ttf)
+        */
+        @font-face {
+            font-family: 'Helvetica World';
+            /* NOTE THE NEW PLACEHOLDER HERE: {{font_path_base}} */
+            src: url('{{font_path_base}}HelveticaWorld.ttf') format('truetype'),
+            url('{{font_path_base}}HelveticaWorld.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'Perandory Condensed';
+            src: url('{{font_path_base}}PerandoryCondensed.ttf') format('truetype'),
+            url('{{font_path_base}}PerandoryCondensed.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'EDO';
+            src: url('{{font_path_base}}EDO.ttf') format('truetype'),
+            url('{{font_path_base}}EDO.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        @font-face {
+            font-family: 'LACQUER';
+            src: url('{{font_path_base}}LACQUER.ttf') format('truetype'),
+            url('{{font_path_base}}LACQUER.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
+
+        /* --- General Setup --- */
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #ffffff;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        .thumbnail-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background-color: #0a0a0a;
+            background-image: url('{{image}}');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        /* Dark overlay for text readability + horror mood */
+        .thumbnail-container::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.7) 50%, rgba(0,0,0,0.85) 100%);
+            pointer-events: none;
+        }
+
+        /* Vignette for horror feel */
+        .thumbnail-container::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%);
+            pointer-events: none;
+        }
+
+        /* --- Top Left: Episode (horror red) --- */
+        .episode-info {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            display: flex;
+            align-items: center;
+            font-size: 28px;
+            color: #ff4444;
+            font-weight: bold;
+            font-family: 'Helvetica World', sans-serif;
+            text-shadow: 0 0 12px rgba(255,0,0,0.5), 0 1px 3px #000;
+            z-index: 2;
+        }
+
+        .episode-number-badge {
+            width: 48px;
+            height: 48px;
+            background: linear-gradient(145deg, #8b0000, #b22222);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            font-size: 22px;
+            margin-left: 10px;
+            border: 2px solid rgba(255,255,255,0.4);
+            font-family: 'Perandory Condensed', sans-serif;
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+
+        /* --- Top Right: Subscribe (YouTube-style red) --- */
+        .subscribe-button {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background: linear-gradient(145deg, #cc0000, #ff0000);
+            color: #fff;
+            padding: 8px 18px;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            display: flex;
+            align-items: center;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.25);
+            font-family: 'DM Sans', sans-serif;
+            z-index: 2;
+        }
+
+        .subscribe-button:after {
+            content: '';
+            display: block;
+            width: 15px;
+            height: 15px;
+            background-color: #ffffff;
+            clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+            margin-left: 8px;
+            transform: rotate(90deg) scale(0.8);
+        }
+
+        /* --- Main Title Box (darker, horror-friendly) --- */
+        .title-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 920px;
+            padding: 28px 44px;
+            background: rgba(10, 10, 10, 0.75);
+            border: 1px solid rgba(180, 0, 0, 0.4);
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+            z-index: 2;
+        }
+
+        /* --- Main Title: bold red, readable on any background --- */
+        .main-title {
+            font-family: 'EDO', sans-serif;
+            font-size: 82px;
+            color: #ff3333;
+            font-weight: normal;
+            line-height: 1.08;
+            margin-bottom: 6px;
+            letter-spacing: 2px;
+            text-shadow:
+                0 0 20px rgba(255, 50, 50, 0.4),
+                -2px -2px 0 #5c0000,
+                2px -2px 0 #5c0000,
+                -2px 2px 0 #5c0000,
+                2px 2px 0 #5c0000,
+                0 2px 8px rgba(0,0,0,0.8);
+        }
+
+        /* --- Subtitle: lighter, readable --- */
+        .subtitle {
+            font-family: 'LACQUER', cursive;
+            font-size: 34px;
+            color: #c9b8a8;
+            font-weight: normal;
+            margin-top: 0;
+            letter-spacing: 1.5px;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 12px rgba(0,0,0,0.5);
+        }
+
+        /* --- Bottom: Channel name (subtle red glow) --- */
+        .brand-text {
+            position: absolute;
+            bottom: 42px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 26px;
+            color: #e0e0e0;
+            letter-spacing: 6px;
+            font-weight: 700;
+            text-transform: uppercase;
+            font-family: 'DM Sans', sans-serif;
+            text-shadow: 0 0 16px rgba(255, 60, 60, 0.35), 0 2px 6px rgba(0,0,0,0.8);
+            z-index: 2;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="thumbnail-container" id="thumbnail-container">
+        <div class="episode-info">
+            Eps :
+            <div class="episode-number-badge">
+                {{episode}}
+            </div>
+        </div>
+
+        <div class="subscribe-button">
+            SUBSCRIBE
+        </div>
+
+        <div class="title-box">
+            <div class="main-title">
+                {{main_title}}
+            </div>
+            <div class="subtitle">
+                {{sub_title}}
+            </div>
+        </div>
+
+        <div class="brand-text">
+            H O R R O R &nbsp; P O D C A S T &nbsp; A D D A
+        </div>
+    </div>
+</body>
+
+</html>

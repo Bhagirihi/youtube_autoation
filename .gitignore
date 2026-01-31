@@ -1,0 +1,26 @@
+# Dev cache directory
+.dev-cache/
+
+# Environment variables
+.env
+.env.local
+
+# Node modules
+node_modules/
+
+# Output files (generated videos, JSON, Excel)
+output/
+src/output/
+
+# Auth – do not commit tokens or client secrets
+*.token.json
+client_secret*.json
+src/auth/*.token.json
+src/auth/client_secret*.json
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
