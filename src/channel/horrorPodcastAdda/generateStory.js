@@ -43,21 +43,29 @@ const generateStory = async () => {
       throw new Error("❌ No titles returned from AI");
     }
 
-    // 2. Ask user to select title
-    const storyTitle = await inquirer.prompt([
-      {
-        type: "rawlist",
-        name: "storyTitle",
-        message: "📌 Select Story Title:",
-        choices: aiOutputTitle.titles,
-        loop: false, // optional: stops cycling from last to first
-      },
-    ]);
+    // 2. Select title: in CI / non-interactive, auto-pick first; else ask user
+    const isNonInteractive = process.env.CI === "true" || process.env.NON_INTERACTIVE === "true" || !process.stdin.isTTY;
+    let storyTitle;
+    if (isNonInteractive) {
+      storyTitle = { storyTitle: aiOutputTitle.titles[0] };
+      console.log("📌 Auto-selected title (non-interactive):", storyTitle.storyTitle);
+    } else {
+      storyTitle = await inquirer.prompt([
+        {
+          type: "rawlist",
+          name: "storyTitle",
+          message: "📌 Select Story Title:",
+          choices: aiOutputTitle.titles,
+          loop: false,
+        },
+      ]);
+    }
 
     await sleep(1000);
 
-    // 3. Generate full story
-    const aiStory = await generateAIStory(storyTitle);
+    // 3. Generate full story (pass title string)
+    const titleStr = storyTitle.storyTitle || aiOutputTitle.titles[0];
+    const aiStory = await generateAIStory(titleStr);
     await sleep(1000);
 
     if (!aiStory?.display_title) {
