@@ -1,3 +1,4 @@
+import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
@@ -37,6 +38,74 @@ function isRetryableDownloadError(err) {
   );
 }
 
+function is403Error(err) {
+  return /Download failed: 403/.test(err?.message || String(err));
+}
+
+/**
+ * Fallback: download with yt-dlp (works from CI/datacenter IPs when API blocks 403).
+ * Requires yt-dlp on PATH (e.g. installed in GitHub Actions).
+ */
+function downloadWithYtDlp(videoUrl, videoPath, folder, videoTitle) {
+  console.log("🎥 Trying yt-dlp fallback (API blocked from this IP)...", videoTitle || videoUrl);
+  const outTemplate = path.join(folder, "%(id)s.%(ext)s");
+
+  try {
+    execSync(
+      "yt-dlp",
+      [
+        "-f", "best[ext=mp4]/best",
+        "--merge-output-format", "mp4",
+        "-o", outTemplate,
+        "--write-thumbnail",
+        "--write-description",
+        "--no-write-subs",
+        "--no-warnings",
+        "--quiet",
+        videoUrl,
+      ],
+      { stdio: "pipe", maxBuffer: 10 * 1024 * 1024 }
+    );
+  } catch (e) {
+    throw new Error(`yt-dlp download failed: ${e?.message || e}`);
+  }
+
+  const videoExts = [".mp4", ".mkv", ".webm"];
+  const dirFiles = fs.readdirSync(folder);
+  const videoFile = dirFiles.find(
+    (f) =>
+      !f.includes("-thumbnail") &&
+      !f.endsWith(".description") &&
+      videoExts.some((ext) => f.endsWith(ext))
+  );
+  if (!videoFile) throw new Error("yt-dlp did not produce a video file");
+  const actualPath = path.join(folder, videoFile);
+  if (path.resolve(actualPath) !== path.resolve(videoPath)) {
+    fs.renameSync(actualPath, videoPath);
+  }
+
+  const idFromFile = path.basename(videoFile, path.extname(videoFile));
+  let thumbnailPath = path.join(folder, "thumbnail.jpg");
+  const thumbFile = dirFiles.find((f) => f.startsWith(idFromFile) && f.includes("thumbnail"));
+  if (thumbFile) thumbnailPath = path.join(folder, thumbFile);
+
+  let description = "";
+  const descFile = path.join(folder, idFromFile + ".description");
+  if (fs.existsSync(descFile)) {
+    description = fs.readFileSync(descFile, "utf-8").trim();
+  }
+
+  let title = videoTitle || "";
+  try {
+    title = execSync("yt-dlp", ["--print", "title", "--no-warnings", videoUrl], { encoding: "utf-8" }).trim();
+  } catch {
+    // keep videoTitle
+  }
+
+  console.log("✅ Video saved (yt-dlp):", videoPath);
+  return { videoPath, thumbnailPath, description, title };
+}
+
 export async function downloadYouTubeVideo(
   videoUrl,
   videoTitle,
@@ -65,17 +134,24 @@ export async function downloadYouTubeVideo(
       );
     } catch (err) {
       lastError = err;
-      if (
-        attempt < maxRetries &&
-        isRetryableDownloadError(err)
-      ) {
+      const canRetry = attempt < maxRetries && isRetryableDownloadError(err);
+      if (canRetry) {
         console.warn(
           `⚠️ Download attempt ${attempt}/${maxRetries} failed: ${err.message}. Retrying in ${retryDelayMs / 1000}s...`
         );
         await sleep(retryDelayMs);
       } else {
-        throw err;
+        break;
       }
+    }
+  }
+
+  // On 403 (e.g. GitHub Actions datacenter IP blocked by API), try yt-dlp fallback
+  if (lastError && is403Error(lastError)) {
+    try {
+      return downloadWithYtDlp(videoUrl, videoPath, folder, videoTitle);
+    } catch (ytDlpErr) {
+      console.warn("⚠️ yt-dlp fallback failed:", ytDlpErr?.message || ytDlpErr);
     }
   }
   throw lastError;
