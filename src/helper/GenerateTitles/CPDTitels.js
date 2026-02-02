@@ -47,6 +47,7 @@ function parseYoutubeSEOMarkdown(rawText) {
  */
 export async function getYoutubeMovieSEO(movieTitle) {
   if (!movieTitle || typeof movieTitle !== "string") return null;
+  if (!genAI) return null;
   try {
     const prompt = await promptYoutubeSEO(movieTitle);
     const model = genAI.getGenerativeModel({

@@ -175,8 +175,9 @@ async function checkGeminiKeys() {
     console.warn(`${name}: ${result.error || "failed"}`);
   }
 
-  console.warn("⚠️ No working Gemini key found.");
-  return null;
+  // Use first key anyway (e.g. quota may reset; pipelines that need Gemini will fail later with a clearer error)
+  console.warn("⚠️ No key passed test; using first key anyway (CI/quota).");
+  return candidates[0].key;
 }
 
 /* ────────────────────────────────────────────────
@@ -184,11 +185,8 @@ async function checkGeminiKeys() {
 ──────────────────────────────────────────────── */
 const GEMINI_KEY = await checkGeminiKeys();
 
-if (!GEMINI_KEY) {
-  throw new Error("❌ GEMINI_MASTER_API_KEY missing in .env");
-}
-
-const genAI = new GoogleGenerativeAI(GEMINI_KEY);
+// Allow no key so pipelines that don't use Gemini (e.g. CinePlotDecodeShorts) can run
+const genAI = GEMINI_KEY ? new GoogleGenerativeAI(GEMINI_KEY) : null;
 
 export { genAI };
 

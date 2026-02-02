@@ -66,12 +66,9 @@ async function parseAIJson(rawText) {
 }
 
 async function executePrompt(prompt) {
+  if (!genAI) throw new Error("❌ Gemini not configured (set GEMINI_API_KEY or GEMINI_MASTER_API_KEY in env)");
   return retryWithBackoff(
     async () => {
-      // Use default genAI client from helper/index.js
-      // const modelName = String(await getRandomGeminiModel());
-      // console.log(`🎯 Using Gemini model: ${modelName}`);
-
       const model = genAI.getGenerativeModel({
         model: "gemini-2.5-flash",
         generationConfig: {
@@ -118,6 +115,7 @@ export async function generateAIStory(title) {
  */
 export async function getYoutubeHPASEO(storyTitle) {
   if (!storyTitle || typeof storyTitle !== "string") return null;
+  if (!genAI) return null;
   try {
     const prompt = await promptYoutubeHPASEO(storyTitle);
     const model = genAI.getGenerativeModel({

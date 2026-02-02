@@ -124,7 +124,7 @@ jobs:
         run: |
           for ch in ${{ steps.channels.outputs.channels }}; do
             echo "=== Running $ch ==="
-            CHANNEL="$ch" node run-scheduled.js || true
+            CHANNEL="$ch" node run-scheduled.js
           done
 
       - name: Save state (processed / uploaded lists)
