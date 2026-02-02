@@ -36,10 +36,15 @@ const generateStory = async () => {
       return cachedData;
     }
 
-    // 1. Generate AI titles
+    // 1. Generate AI titles (supports { "titles": [...] } or { "title": "..." })
     const aiOutputTitle = await generateAITitles();
+    const titles = Array.isArray(aiOutputTitle?.titles)
+      ? aiOutputTitle.titles
+      : aiOutputTitle?.title
+        ? [aiOutputTitle.title]
+        : [];
 
-    if (!aiOutputTitle?.titles?.length) {
+    if (!titles.length) {
       throw new Error("❌ No titles returned from AI");
     }
 
@@ -47,7 +52,7 @@ const generateStory = async () => {
     const isNonInteractive = process.env.CI === "true" || process.env.NON_INTERACTIVE === "true" || !process.stdin.isTTY;
     let storyTitle;
     if (isNonInteractive) {
-      storyTitle = { storyTitle: aiOutputTitle.titles[0] };
+      storyTitle = { storyTitle: titles[0] };
       console.log("📌 Auto-selected title (non-interactive):", storyTitle.storyTitle);
     } else {
       storyTitle = await inquirer.prompt([
@@ -55,7 +60,7 @@ const generateStory = async () => {
           type: "rawlist",
           name: "storyTitle",
           message: "📌 Select Story Title:",
-          choices: aiOutputTitle.titles,
+          choices: titles,
           loop: false,
         },
       ]);
@@ -64,7 +69,7 @@ const generateStory = async () => {
     await sleep(1000);
 
     // 3. Generate full story (pass title string)
-    const titleStr = storyTitle.storyTitle || aiOutputTitle.titles[0];
+    const titleStr = storyTitle.storyTitle || titles[0];
     const aiStory = await generateAIStory(titleStr);
     await sleep(1000);
 

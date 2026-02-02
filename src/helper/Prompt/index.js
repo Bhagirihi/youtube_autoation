@@ -25,10 +25,24 @@
 // };
 
 export const promptStoryTitle = async () => {
-  return `Act as a Master YouTube SEO Strategist for the Indian Horror/Supernatural niche. Generate [12] high-CTR YouTube video titles in Hinglish (Roman Hindi + English mix). Use a '3-Part Hook' structure: 1. A Negative Command or Warning, 2. A Hyper-Local Setting, and 3. A Proof Element. Keep every title under 65 characters to prevent mobile truncation. Keywords to weave in: Khofnak, Shaitani, Rooh, Daayan, Maut, or Secret. Place exactly 1 or 2 emojis ONLY at the very end of the title. Provide 3 titles for each category: Forbidden Actions, First-Person Witness, Subscriber Leaks, and Local Urban Legends.
+  return `Act as a YouTube SEO Specialist and Psychology Expert. Create 1 high-CTR suspense title in Hinglish (under 60 characters) based on the 'Inverse Curiosity' framework.
 
-Output: Return ONLY a valid JSON object. Use double quotes for keys and strings. No markdown, no code fences (\`\`\`), no extra text.
-Example: { "titles": [ "Title 1", "Title 2" ] }`;
+Instructions for the AI:
+
+Trigger Rebellion: Use a 'Prohibition' hook (e.g., Don't Look, Never Stop). Use the psychological fact that humans are rebellious and will click specifically because they are told not to.
+
+Enforce Specificity: Avoid generic words like 'ghost' or 'horror.' Use a highly specific, 'boring' setting that becomes terrifying with a twist (e.g., The back seat, The water tank, The rearview mirror).
+
+Ground the Proof: Include a 'Captured' element (CCTV, Dashcam, or Bodycam) to make the supernatural feel like an undeniable physical reality.
+
+Keywords: Weave in Shaitani, Galti, or Secret.
+
+Visuals: End with exactly 1 or 2 shock-style emojis.
+
+Goal: Create a title that makes the viewer feel like they are about to see something they weren't supposed to find.
+
+Output Format: Return ONLY a valid JSON object. Use double quotes for keys and strings. No markdown, no code fences (\`\`\`), no extra text.
+Example: { "title": "Title 1" }`;
 };
 
 // Act as a Master YouTube SEO Strategist for the Indian Horror/Supernatural niche. Generate [12] high-CTR YouTube video titles in Hinglish (Roman Hindi + English mix). Use a '3-Part Hook' structure: 1. A Negative Command or Warning (e.g., 'Galti se bhi mat...'), 2. A Hyper-Local Setting (e.g., 'The 4th Floor Balcony', 'Old Highway Bridge'), and 3. A Proof Element (e.g., 'CCTV Footage', 'Subscriber Story', 'Sacchi Ghatna'). Keep every title under 65 characters to prevent mobile truncation. Keywords to weave in: Khofnak, Shaitani, Rooh, Daayan, Maut, or Secret. Place exactly 1 or 2 emojis ONLY at the very end of the title. Provide 3 titles for each category: Forbidden Actions, First-Person Witness, Subscriber Leaks, and Local Urban Legends. Return the output strictly in valid JSON format: { 'titles': [] }.
