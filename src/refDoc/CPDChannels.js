@@ -131,7 +131,8 @@ const cinePlotDecodeShorts = async () => {
       true,
       "mp4",
       videoPath,
-      folder
+      folder,
+      { retries: 5, retryDelayMs: 10000 }
     );
 
     await uploadToYouTube({

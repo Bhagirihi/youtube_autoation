@@ -20,6 +20,23 @@ async function downloadThumbnail(imageUrl, localPath) {
   }
 }
 
+const DEFAULT_DOWNLOAD_RETRIES = 3;
+const RETRY_DELAY_MS = 5000;
+
+function sleep(ms) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function isRetryableDownloadError(err) {
+  const msg = err?.message || String(err);
+  return (
+    /Download failed: 403/.test(msg) ||
+    /Download failed: 429/.test(msg) ||
+    /Download failed: 5\d\d/.test(msg) ||
+    /ECONNRESET|ETIMEDOUT|ENOTFOUND|fetch failed/i.test(msg)
+  );
+}
+
 export async function downloadYouTubeVideo(
   videoUrl,
   videoTitle,
@@ -27,9 +44,58 @@ export async function downloadYouTubeVideo(
   hasAudio = false,
   videoFormat,
   videoPath,
-  folder
+  folder,
+  options = {}
 ) {
-  console.log("🎥 Downloading...", videoTitle || videoUrl);
+  const maxRetries = options.retries ?? DEFAULT_DOWNLOAD_RETRIES;
+  const retryDelayMs = options.retryDelayMs ?? RETRY_DELAY_MS;
+  let lastError;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await doDownloadYouTubeVideo(
+        videoUrl,
+        videoTitle,
+        videoQuality,
+        hasAudio,
+        videoFormat,
+        videoPath,
+        folder,
+        attempt > 1 ? attempt : null
+      );
+    } catch (err) {
+      lastError = err;
+      if (
+        attempt < maxRetries &&
+        isRetryableDownloadError(err)
+      ) {
+        console.warn(
+          `⚠️ Download attempt ${attempt}/${maxRetries} failed: ${err.message}. Retrying in ${retryDelayMs / 1000}s...`
+        );
+        await sleep(retryDelayMs);
+      } else {
+        throw err;
+      }
+    }
+  }
+  throw lastError;
+}
+
+async function doDownloadYouTubeVideo(
+  videoUrl,
+  videoTitle,
+  videoQuality,
+  hasAudio,
+  videoFormat,
+  videoPath,
+  folder,
+  attemptLabel
+) {
+  if (attemptLabel) {
+    console.log("🎥 Downloading (retry)...", videoTitle || videoUrl);
+  } else {
+    console.log("🎥 Downloading...", videoTitle || videoUrl);
+  }
 
   const printProgress = (status, downloaded, total) => {
     const percentage = ((downloaded / total) * 100).toFixed(1);
