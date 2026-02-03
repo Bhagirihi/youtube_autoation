@@ -48,16 +48,22 @@ function is403Error(err) {
  * Requires yt-dlp on PATH (e.g. installed in GitHub Actions).
  */
 function downloadWithYtDlp(videoUrl, videoPath, folder, videoTitle) {
-  console.log("🎥 Trying yt-dlp fallback (API blocked from this IP)...", videoTitle || videoUrl);
+  console.log(
+    "🎥 Trying yt-dlp fallback (API blocked from this IP)...",
+    videoTitle || videoUrl
+  );
   const outTemplate = path.join(folder, "%(id)s.%(ext)s");
 
   try {
     execSync(
       "yt-dlp",
       [
-        "-f", "best[ext=mp4]/best",
-        "--merge-output-format", "mp4",
-        "-o", outTemplate,
+        "-f",
+        "best[ext=mp4]/best",
+        "--merge-output-format",
+        "mp4",
+        "-o",
+        outTemplate,
         "--write-thumbnail",
         "--write-description",
         "--no-write-subs",
@@ -87,7 +93,9 @@ function downloadWithYtDlp(videoUrl, videoPath, folder, videoTitle) {
 
   const idFromFile = path.basename(videoFile, path.extname(videoFile));
   let thumbnailPath = path.join(folder, "thumbnail.jpg");
-  const thumbFile = dirFiles.find((f) => f.startsWith(idFromFile) && f.includes("thumbnail"));
+  const thumbFile = dirFiles.find(
+    (f) => f.startsWith(idFromFile) && f.includes("thumbnail")
+  );
   if (thumbFile) thumbnailPath = path.join(folder, thumbFile);
 
   let description = "";
@@ -98,7 +106,11 @@ function downloadWithYtDlp(videoUrl, videoPath, folder, videoTitle) {
 
   let title = videoTitle || "";
   try {
-    title = execSync("yt-dlp", ["--print", "title", "--no-warnings", videoUrl], { encoding: "utf-8" }).trim();
+    title = execSync(
+      "yt-dlp",
+      ["--print", "title", "--no-warnings", videoUrl],
+      { encoding: "utf-8" }
+    ).trim();
   } catch {
     // keep videoTitle
   }
@@ -138,7 +150,9 @@ export async function downloadYouTubeVideo(
       const canRetry = attempt < maxRetries && isRetryableDownloadError(err);
       if (canRetry) {
         console.warn(
-          `⚠️ Download attempt ${attempt}/${maxRetries} failed: ${err.message}. Retrying in ${retryDelayMs / 1000}s...`
+          `⚠️ Download attempt ${attempt}/${maxRetries} failed: ${
+            err.message
+          }. Retrying in ${retryDelayMs / 1000}s...`
         );
         await sleep(retryDelayMs);
       } else {
@@ -192,12 +206,14 @@ async function doDownloadYouTubeVideo(
     const encodedUrl = encodeURIComponent(videoUrl); // STEP 1: Fetch video metadata
 
     const apiUrl = `https://ytdl.socialplug.io/api/video-info?url=${encodedUrl}`;
+    console.log("Youtube Metadata URL:", apiUrl);
 
     const apiHeaders = {
       accept: "application/json, text/plain, */*",
       origin: "https://www.socialplug.io",
       referer: "https://www.socialplug.io/",
-      "sec-ch-ua": '"Chromium";v="120", "Google Chrome";v="120", "Not_A Brand";v="24"',
+      "sec-ch-ua":
+        '"Chromium";v="120", "Google Chrome";v="120", "Not_A Brand";v="24"',
       "sec-ch-ua-mobile": "?0",
       "sec-ch-ua-platform": '"macOS"',
       "user-agent":
@@ -269,6 +285,7 @@ async function doDownloadYouTubeVideo(
     }
 
     const downloadUrl = mp4Formats[parseInt(selectedQuality)].url;
+    console.log("Youtube Download URL:", downloadUrl);
 
     const browserHeaders = {
       "User-Agent":
@@ -281,7 +298,8 @@ async function doDownloadYouTubeVideo(
       "Sec-Fetch-Dest": "empty",
       "Sec-Fetch-Mode": "cors",
       "Sec-Fetch-Site": "cross-site",
-      "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+      "Sec-Ch-Ua":
+        '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
       "Sec-Ch-Ua-Mobile": "?0",
       "Sec-Ch-Ua-Platform": '"macOS"',
     };
@@ -297,10 +315,7 @@ async function doDownloadYouTubeVideo(
     }
 
     const stream = videoResponse.data;
-    const totalBytes = parseInt(
-      videoResponse.headers["content-length"],
-      10
-    );
+    const totalBytes = parseInt(videoResponse.headers["content-length"], 10);
     let downloadedBytes = 0;
 
     const fileStream = fs.createWriteStream(videoPath);
