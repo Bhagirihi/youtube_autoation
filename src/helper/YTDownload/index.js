@@ -2,6 +2,7 @@ import { execSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import fetch from "node-fetch";
+import axios from "axios";
 
 async function downloadThumbnail(imageUrl, localPath) {
   if (!imageUrl || typeof imageUrl !== "string") return null;
@@ -192,19 +193,19 @@ async function doDownloadYouTubeVideo(
 
     const apiUrl = `https://ytdl.socialplug.io/api/video-info?url=${encodedUrl}`;
 
-    const response = await fetch(apiUrl, {
-      method: "GET",
-      headers: {
-        accept: "application/json, text/plain, */*",
-        origin: "https://www.socialplug.io",
-        referer: "https://www.socialplug.io/",
-        "sec-ch-ua-platform": '"macOS"',
-        "user-agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",
-      },
-    });
+    const apiHeaders = {
+      accept: "application/json, text/plain, */*",
+      origin: "https://www.socialplug.io",
+      referer: "https://www.socialplug.io/",
+      "sec-ch-ua": '"Chromium";v="120", "Google Chrome";v="120", "Not_A Brand";v="24"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"macOS"',
+      "user-agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    };
 
-    const json = await response.json();
+    const response = await axios.get(apiUrl, { headers: apiHeaders });
+    const json = response.data;
     if (!json.format_options) {
       throw new Error("format_options missing. API changed?");
     }
@@ -269,53 +270,65 @@ async function doDownloadYouTubeVideo(
 
     const downloadUrl = mp4Formats[parseInt(selectedQuality)].url;
 
-    const videoResponse = await fetch(downloadUrl);
-    if (!videoResponse.ok)
-      throw new Error(`Download failed: ${videoResponse.status}`); // ASSUME: The 'videoResponse' is the result of 'await fetch(downloadUrl)' // and that this line is the line *immediately* preceding the block below.
+    const browserHeaders = {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      Accept: "*/*",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Accept-Encoding": "identity",
+      Referer: "https://www.socialplug.io/",
+      Origin: "https://www.socialplug.io",
+      "Sec-Fetch-Dest": "empty",
+      "Sec-Fetch-Mode": "cors",
+      "Sec-Fetch-Site": "cross-site",
+      "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+      "Sec-Ch-Ua-Mobile": "?0",
+      "Sec-Ch-Ua-Platform": '"macOS"',
+    };
 
-    const totalBytes = parseInt(
-      videoResponse.headers.get("content-length"),
-      10
-    ); // <--- THIS LINE IS CRITICAL
-    let downloadedBytes = 0; // Initialize a tracker for the promise scope
+    const videoResponse = await axios.get(downloadUrl, {
+      responseType: "stream",
+      headers: browserHeaders,
+      validateStatus: (status) => true,
+    });
 
-    if (isNaN(totalBytes)) {
-      // Progress bar skipped when content-length missing
+    if (videoResponse.status !== 200) {
+      throw new Error(`Download failed: ${videoResponse.status}`);
     }
 
-    // This now correctly calls fs.createWriteStream from the standard 'fs' module.
+    const stream = videoResponse.data;
+    const totalBytes = parseInt(
+      videoResponse.headers["content-length"],
+      10
+    );
+    let downloadedBytes = 0;
+
     const fileStream = fs.createWriteStream(videoPath);
 
     return await new Promise((resolve, reject) => {
-      // --- PROGRESS BAR INTEGRATION ---
-      // 1. Listen for data chunks on the incoming stream (videoResponse.body)
-      if (!isNaN(totalBytes) && videoResponse.body) {
-        // Added check for videoResponse.body existence
-        // totalBytes is now defined here
-        videoResponse.body.on("data", (chunk) => {
+      if (!isNaN(totalBytes) && stream) {
+        stream.on("data", (chunk) => {
           downloadedBytes += chunk.length;
           printProgress("Downloading", downloadedBytes, totalBytes);
         });
       }
 
-      // 2. Pipe the response body to the file stream
-      if (videoResponse.body) {
-        videoResponse.body.pipe(fileStream);
+      if (stream) {
+        stream.pipe(fileStream);
       } else {
         reject(new Error("Video response body is missing or null."));
         return;
       }
 
-      // --- CRITICAL: Listen for all possible termination events --- // Download Stream Error (Network/Source Error)
-      videoResponse.body.on("error", (err) => {
+      stream.on("error", (err) => {
         console.error("\n🚨 Download Stream Error:", err.message);
         reject(err);
-      }); // Write Stream Error (File System Error)
+      });
 
       fileStream.on("error", (err) => {
         console.error("\n🚨 Write Stream Error:", err.message);
         reject(err);
-      }); // Resolve when the writing is finished
+      });
 
       fileStream.on("finish", () => {
         if (!isNaN(totalBytes)) {
