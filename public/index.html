@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Horror Auto Factory</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,9..60,400;0,9..60,600;1,9..60,400&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #e2e6ea;
+      --text: #1a1d21;
+      --muted: #5c6370;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --danger: #dc2626;
+      --success: #16a34a;
+      --radius: 6px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06);
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 2.5rem 2rem;
+    }
+    .page-header {
+      margin-bottom: 2rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    h1 {
+      font-family: "Source Serif 4", Georgia, serif;
+      font-size: 1.75rem;
+      font-weight: 600;
+      margin: 0 0 0.375rem 0;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .tagline {
+      color: var(--muted);
+      font-size: 0.9375rem;
+      margin: 0;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: 2rem 2rem;
+      margin-bottom: 1.75rem;
+    }
+    .card h2 {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      margin: 0 0 1rem 0;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .card-header-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .card-header-row h2 { margin: 0; }
+    .card-actions-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .title-section {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 1.25rem;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      padding-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    @media (max-width: 600px) {
+      .title-section { grid-template-columns: 1fr; }
+    }
+    .title-section-img-wrap {
+      width: 100%;
+      aspect-ratio: 16/10;
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+    .title-section-img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .title-section-img-wrap .placeholder {
+      width: 100%;
+      height: 100%;
+      min-height: 100px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.8125rem;
+    }
+    .title-section-text {
+      font-family: "Source Serif 4", Georgia, serif;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.4;
+    }
+    #storyPlaceholder { color: var(--muted); font-style: italic; font-size: 0.9375rem; }
+    .story-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .story-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 0;
+      align-items: start;
+      padding: 1.25rem 0;
+    }
+    @media (max-width: 700px) {
+      .story-card { grid-template-columns: 1fr; }
+    }
+    .story-card .img-wrap {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: var(--border);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .story-card .img-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .story-card .img-wrap .placeholder {
+      width: 100%;
+      height: 100%;
+      min-height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 0.8125rem;
+    }
+    .story-card .text-wrap {
+      padding: 1.25rem 1.5rem;
+      font-family: "Source Serif 4", Georgia, serif;
+      font-size: 0.9375rem;
+      line-height: 1.75;
+      color: var(--text);
+      display: block;
+      overflow: visible;
+      max-height: none;
+    }
+    .story-card-actions {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+    }
+    .story-card-actions button {
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--muted);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.375rem 0.75rem;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .story-card-actions button:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .story-card-actions button:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .card-actions-top {
+      margin-bottom: 1rem;
+    }
+    .card-actions-top .btn-outline { font-size: 0.8125rem; padding: 0.375rem 0.75rem; }
+    .refresh {
+      font-size: 0.875rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .refresh:hover { text-decoration: underline; }
+    .refresh:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.625rem 1.25rem;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: #fff;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .btn.run { margin-bottom: 0; }
+    .btn-outline {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { color: var(--accent); border-color: var(--accent); }
+    #log {
+      font-family: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+      font-size: 0.8125rem;
+      line-height: 1.5;
+      background: #f1f3f5;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem 1.5rem;
+      min-height: 120px;
+      max-height: 280px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      color: var(--muted);
+    }
+    #log:empty::before { content: "Log output will appear here when you run the pipeline."; color: var(--muted); }
+    .media {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-top: 0.5rem;
+    }
+    .media-item label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .media img, .media video {
+      width: 100%;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: #f1f3f5;
+      display: block;
+    }
+    .media video { max-height: 220px; }
+    .media .placeholder-msg { font-size: 0.8125rem; color: var(--muted); }
+    .unsplash-hint {
+      font-size: 0.8125rem;
+      color: var(--muted);
+      background: #f1f3f5;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.5rem 0.75rem;
+      margin-bottom: 1rem;
+    }
+    .unsplash-hint strong { color: var(--text); }
+    .studio-section {
+      margin-bottom: 2rem;
+    }
+    .studio-section:last-child { margin-bottom: 0; }
+    .studio-section-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+    .studio-meta-row {
+      margin-bottom: 1rem;
+    }
+    .studio-meta-row .studio-section-title { margin-bottom: 0; }
+    .studio-meta-row-head {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.375rem;
+    }
+    .studio-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.375rem;
+    }
+    .studio-chip {
+      font-size: 0.8125rem;
+      padding: 0.25rem 0.5rem;
+      background: #f1f3f5;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text);
+    }
+    .studio-description {
+      font-size: 0.9375rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-word;
+      padding: 1rem;
+      background: #f8f9fa;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      max-height: 320px;
+      overflow-y: auto;
+      color: var(--text);
+    }
+    .studio-copy-btn {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+      min-width: 4.5rem;
+    }
+    .studio-copy-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .studio-seo-hint {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--muted);
+    }
+    .empty-state p { margin: 0 0 1rem 0; font-size: 0.9375rem; }
+    .empty-state .btn { margin-top: 0.25rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="page-header">
+      <h1>Horror Auto Factory</h1>
+      <p class="tagline">Generate story, then copy title, description, and tags for YouTube.</p>
+    </header>
+
+    <div class="card studio-card">
+      <div class="card-header-row">
+        <h2>Video details</h2>
+        <div class="card-actions-header">
+          <a href="#" id="refreshStory" class="refresh">Refresh story</a>
+          <button type="button" class="btn btn-outline" id="runBtn">Run pipeline</button>
+        </div>
+      </div>
+      <div id="unsplashHint" class="unsplash-hint" style="display: none;"></div>
+
+      <div id="studioContent" style="display: none;">
+        <div class="studio-section">
+          <div class="studio-section-title">Title</div>
+          <div id="storyTitleWrap"></div>
+        </div>
+
+        <div class="studio-section">
+          <div class="studio-section-title">Story (paragraphs)</div>
+          <div class="card-actions-top" id="copyAllWrap" style="display: none;">
+            <button type="button" class="btn btn-outline" id="copyAllBtn">Copy all paragraphs & image URLs</button>
+          </div>
+          <div id="storyText" class="story-cards"></div>
+          <div id="storyFallback" style="display: none;">
+            <div id="storyFallbackText" class="studio-description"></div>
+          </div>
+        </div>
+
+        <div class="studio-section">
+          <div class="studio-meta-row-head">
+            <span class="studio-section-title">Description</span>
+            <button type="button" class="btn btn-outline studio-copy-btn" id="copyDescBtn">Copy</button>
+          </div>
+          <div id="metaDescription" class="studio-description"></div>
+        </div>
+
+        <div class="studio-section studio-seo" id="studioSeo">
+          <div class="studio-section-title">Tags & SEO</div>
+          <p class="studio-seo-hint">Copy as comma-separated for YouTube Studio.</p>
+          <div class="studio-meta-row">
+            <div class="studio-meta-row-head">
+              <span class="studio-section-title">Triple keywords</span>
+              <button type="button" class="btn btn-outline studio-copy-btn" id="copyTripleKeywords" data-copy-for="metaTripleKeywords" title="Copy as comma-separated for YouTube">Copy</button>
+            </div>
+            <div id="metaTripleKeywords" class="studio-chips"></div>
+          </div>
+          <div class="studio-meta-row">
+            <div class="studio-meta-row-head">
+              <span class="studio-section-title">High volume tags</span>
+              <button type="button" class="btn btn-outline studio-copy-btn" id="copyHighVolumeTags" data-copy-for="metaHighVolumeTags" title="Copy as comma-separated for YouTube">Copy</button>
+            </div>
+            <div id="metaHighVolumeTags" class="studio-chips"></div>
+          </div>
+          <div class="studio-meta-row">
+            <div class="studio-meta-row-head">
+              <span class="studio-section-title">Ranked tags</span>
+              <button type="button" class="btn btn-outline studio-copy-btn" id="copyRankedTags" data-copy-for="metaRankedTags" title="Copy as comma-separated for YouTube">Copy</button>
+            </div>
+            <div id="metaRankedTags" class="studio-chips"></div>
+          </div>
+          <div class="studio-meta-row">
+            <div class="studio-meta-row-head">
+              <span class="studio-section-title">High ranked keywords</span>
+              <button type="button" class="btn btn-outline studio-copy-btn" id="copyHighRankedKeywords" data-copy-for="metaHighRankedKeywords" title="Copy as comma-separated for YouTube">Copy</button>
+            </div>
+            <div id="metaHighRankedKeywords" class="studio-chips"></div>
+          </div>
+          <div class="studio-meta-row">
+            <div class="studio-meta-row-head">
+              <span class="studio-section-title">Hashtags</span>
+              <button type="button" class="btn btn-outline studio-copy-btn" id="copyHashtags" data-copy-for="metaHashtags" title="Copy as comma-separated for YouTube">Copy</button>
+            </div>
+            <div id="metaHashtags" class="studio-chips"></div>
+          </div>
+          <div class="studio-meta-row">
+            <div class="studio-meta-row-head">
+              <span class="studio-section-title">Tags</span>
+              <button type="button" class="btn btn-outline studio-copy-btn" id="copyTags" data-copy-for="metaTags" title="Copy as comma-separated for YouTube">Copy</button>
+            </div>
+            <div id="metaTags" class="studio-chips"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="storyPlaceholderWrap" class="empty-state">
+        <p id="storyPlaceholder">No story yet.</p>
+        <p style="font-size:0.875rem; margin-bottom:0.5rem;">Click Run pipeline above to generate your first story.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Log</h2>
+      <pre id="log"></pre>
+    </div>
+
+    <div class="card">
+      <h2>Output</h2>
+      <div class="media">
+        <div class="media-item">
+          <label for="thumb">Thumbnail</label>
+          <img id="thumb" src="" alt="Thumbnail" style="display:none;" />
+          <span id="thumbNone" class="placeholder-msg">Not generated yet.</span>
+        </div>
+        <div class="media-item">
+          <label for="video">Video</label>
+          <video id="video" controls style="display:none;" />
+          <span id="videoNone" class="placeholder-msg">Not generated yet.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const runBtn = document.getElementById("runBtn");
+    const logEl = document.getElementById("log");
+    const storyTitleWrap = document.getElementById("storyTitleWrap");
+    const storyText = document.getElementById("storyText");
+    const storyCardsContainer = document.getElementById("storyText");
+    const storyFallback = document.getElementById("storyFallback");
+    const storyFallbackText = document.getElementById("storyFallbackText");
+    const storyPlaceholderWrap = document.getElementById("storyPlaceholderWrap");
+    const storyPlaceholder = document.getElementById("storyPlaceholder");
+    const thumb = document.getElementById("thumb");
+    const thumbNone = document.getElementById("thumbNone");
+    const video = document.getElementById("video");
+    const videoNone = document.getElementById("videoNone");
+
+    let unsplashKeyMissingShown = false;
+    async function fetchUnsplashUrl(query) {
+      try {
+        const r = await fetch("/api/unsplash?query=" + encodeURIComponent(query));
+        const d = await r.json();
+        if (r.status === 503 && !unsplashKeyMissingShown) {
+          unsplashKeyMissingShown = true;
+          const hint = document.getElementById("unsplashHint");
+          hint.innerHTML = "<strong>Images unavailable.</strong> " + (d.hint || d.error || "Set UNSPLASH_ACCESS_KEY in .env and restart the server.");
+          hint.style.display = "block";
+        }
+        return d.url || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    async function loadStory() {
+      try {
+        const r = await fetch("/api/story");
+        const data = await r.json();
+        if (!data.story && (!data.paragraphs || !data.paragraphs.length)) {
+          document.getElementById("studioContent").style.display = "none";
+          storyPlaceholderWrap.style.display = "block";
+          storyText.style.display = "none";
+          storyFallback.style.display = "none";
+          document.getElementById("copyAllWrap").style.display = "none";
+          storyTitleWrap.innerHTML = "";
+          storyPlaceholder.textContent = "No story yet.";
+          return;
+        }
+        storyPlaceholderWrap.style.display = "none";
+        document.getElementById("studioContent").style.display = "block";
+
+        const titleQuery = (data.titleImagePrompt && data.titleImagePrompt.trim()) || (data.scenes && data.scenes[0]) || "Hindi horror story cinematic";
+        storyTitleWrap.innerHTML = '<div class="title-section"><div class="title-section-img-wrap"><span class="placeholder">Loading…</span></div><div class="title-section-text">' + (data.title || "").replace(/</g, "&lt;") + "</div></div>";
+        const titleImgWrap = storyTitleWrap.querySelector(".title-section-img-wrap");
+        const titleImageUrl = await fetchUnsplashUrl(titleQuery);
+        if (titleImageUrl) {
+          document.getElementById("unsplashHint").style.display = "none";
+          const img = document.createElement("img");
+          img.src = titleImageUrl;
+          img.alt = titleQuery;
+          titleImgWrap.innerHTML = "";
+          titleImgWrap.appendChild(img);
+        } else {
+          titleImgWrap.innerHTML = '<span class="placeholder">No image</span>';
+        }
+
+        const rawParagraphs = data.paragraphs && data.paragraphs.length
+          ? data.paragraphs
+          : (data.story || "").split(/\n\n+/).map((t) => t.trim()).filter(Boolean).map((text, i) => {
+              const scenes = data.scenes && data.scenes.length ? data.scenes : ["horror cinematic"];
+              return { text, imagePrompt: scenes[i % scenes.length] };
+            });
+        const paragraphs = rawParagraphs.filter((p) => p.text);
+
+        if (paragraphs.length === 0) {
+          storyFallbackText.textContent = data.story || "";
+          storyFallback.style.display = "block";
+          storyText.style.display = "none";
+          document.getElementById("copyAllWrap").style.display = "none";
+          renderStudioMeta(data);
+          document.getElementById("copyDescBtn").onclick = () => copyToClipboard(data.description || "", "copyDescBtn", "Copy");
+          return;
+        }
+
+        storyFallback.style.display = "none";
+        storyText.style.display = "block";
+        storyCardsContainer.innerHTML = "";
+
+        const copyAllWrap = document.getElementById("copyAllWrap");
+        copyAllWrap.style.display = "block";
+        renderStudioMeta(data);
+        document.getElementById("copyDescBtn").onclick = () => copyToClipboard(data.description || "", "copyDescBtn", "Copy");
+
+        for (let i = 0; i < paragraphs.length; i++) {
+          const p = paragraphs[i];
+          const card = document.createElement("div");
+          card.className = "story-card";
+
+          const imgWrap = document.createElement("div");
+          imgWrap.className = "img-wrap";
+          imgWrap.innerHTML = '<span class="placeholder">Loading…</span>';
+
+          const textCell = document.createElement("div");
+          textCell.className = "text-cell";
+          const textWrap = document.createElement("div");
+          textWrap.className = "text-wrap";
+          textWrap.textContent = p.text;
+
+          const actions = document.createElement("div");
+          actions.className = "story-card-actions";
+          const copyParaBtn = document.createElement("button");
+          copyParaBtn.type = "button";
+          copyParaBtn.textContent = "Copy paragraph";
+          const copyImgBtn = document.createElement("button");
+          copyImgBtn.type = "button";
+          copyImgBtn.textContent = "Copy image URL";
+
+          copyParaBtn.addEventListener("click", () => {
+            navigator.clipboard.writeText(p.text).then(() => {
+              copyParaBtn.textContent = "Copied!";
+              setTimeout(() => { copyParaBtn.textContent = "Copy paragraph"; }, 1500);
+            });
+          });
+          copyImgBtn.addEventListener("click", () => {
+            const url = card.querySelector(".img-wrap img")?.src || "";
+            if (url) {
+              navigator.clipboard.writeText(url).then(() => {
+                copyImgBtn.textContent = "Copied!";
+                setTimeout(() => { copyImgBtn.textContent = "Copy image URL"; }, 1500);
+              });
+            }
+          });
+
+          actions.appendChild(copyParaBtn);
+          actions.appendChild(copyImgBtn);
+          textCell.appendChild(textWrap);
+          textCell.appendChild(actions);
+          card.appendChild(imgWrap);
+          card.appendChild(textCell);
+          storyCardsContainer.appendChild(card);
+
+          const query = (p.imagePrompt || "horror").trim();
+          const url = await fetchUnsplashUrl(query);
+          if (url) {
+            const img = document.createElement("img");
+            img.src = url;
+            img.alt = query;
+            imgWrap.innerHTML = "";
+            imgWrap.appendChild(img);
+          } else {
+            imgWrap.innerHTML = '<span class="placeholder">No image</span>';
+          }
+        }
+
+        document.getElementById("copyAllBtn").onclick = () => {
+          const cards = storyCardsContainer.querySelectorAll(".story-card");
+          const parts = [];
+          cards.forEach((card, i) => {
+            const text = card.querySelector(".text-wrap")?.textContent?.trim() || "";
+            const img = card.querySelector(".img-wrap img");
+            const url = img?.src || "";
+            parts.push(`Paragraph ${i + 1}:\n${text}\n${url ? "Image URL: " + url : ""}`);
+          });
+          const full = parts.join("\n\n---\n\n");
+          copyToClipboard(full, "copyAllBtn", "Copy all paragraphs & image URLs");
+        };
+      } catch (e) {
+        document.getElementById("studioContent").style.display = "none";
+        storyPlaceholderWrap.style.display = "block";
+        storyPlaceholder.textContent = "Could not load story.";
+        storyText.style.display = "none";
+        storyFallback.style.display = "none";
+      }
+    }
+
+    function copyToClipboard(text, btnId, resetLabel) {
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById(btnId);
+        if (btn) {
+          btn.textContent = "Copied!";
+          setTimeout(() => { btn.textContent = resetLabel; }, 2000);
+        }
+      });
+    }
+
+    function renderStudioMeta(data) {
+      const arr = (v) => (Array.isArray(v) ? v : []);
+      const chip = (label) => {
+        const span = document.createElement("span");
+        span.className = "studio-chip";
+        span.textContent = label;
+        return span;
+      };
+      document.getElementById("metaTripleKeywords").innerHTML = "";
+      arr(data.tripleKeywords).forEach((k) => document.getElementById("metaTripleKeywords").appendChild(chip(k)));
+      document.getElementById("metaHighVolumeTags").innerHTML = "";
+      arr(data.highVolumeTags).forEach((t) => document.getElementById("metaHighVolumeTags").appendChild(chip(t)));
+      document.getElementById("metaRankedTags").innerHTML = "";
+      arr(data.rankedTags).forEach((t) => document.getElementById("metaRankedTags").appendChild(chip(t)));
+      document.getElementById("metaHighRankedKeywords").innerHTML = "";
+      arr(data.highRankedKeywords).forEach((k) => document.getElementById("metaHighRankedKeywords").appendChild(chip(k)));
+      document.getElementById("metaHashtags").innerHTML = "";
+      arr(data.hashtags).forEach((h) => document.getElementById("metaHashtags").appendChild(chip(h)));
+      document.getElementById("metaTags").innerHTML = "";
+      arr(data.tags).forEach((t) => document.getElementById("metaTags").appendChild(chip(t)));
+      document.getElementById("metaDescription").textContent = data.description || "";
+    }
+
+    function showOutputs() {
+      thumb.src = "/api/thumb?t=" + Date.now();
+      thumb.onload = () => { thumb.style.display = "block"; thumbNone.style.display = "none"; };
+      thumb.onerror = () => { thumbNone.style.display = "inline"; };
+      video.src = "/api/video?t=" + Date.now();
+      video.onloadeddata = () => { video.style.display = "block"; videoNone.style.display = "none"; };
+      video.onerror = () => { videoNone.style.display = "inline"; };
+    }
+
+    document.getElementById("refreshStory").addEventListener("click", (e) => {
+      e.preventDefault();
+      loadStory();
+    });
+
+    document.getElementById("studioSeo").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-copy-for]");
+      if (!btn) return;
+      const containerId = btn.getAttribute("data-copy-for");
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      const chips = container.querySelectorAll(".studio-chip");
+      const text = Array.from(chips).map((c) => c.textContent.trim()).filter(Boolean).join(", ");
+      copyToClipboard(text, btn.id, "Copy");
+    });
+
+    runBtn.addEventListener("click", async () => {
+      runBtn.disabled = true;
+      logEl.textContent = "Starting pipeline…\n";
+      const es = new EventSource("/api/run");
+      es.addEventListener("log", (e) => {
+        const d = JSON.parse(e.data);
+        if (d.line) {
+          logEl.textContent += d.line + "\n";
+          if (/Story generated|\[1\/6\] Story done|\[1\/1\] Story done/.test(d.line)) loadStory();
+        }
+        logEl.scrollTop = logEl.scrollHeight;
+      });
+      es.addEventListener("done", (e) => {
+        const d = JSON.parse(e.data);
+        logEl.textContent += "\nExited with code " + d.code + "\n";
+        es.close();
+        runBtn.disabled = false;
+        loadStory();
+        showOutputs();
+      });
+      es.addEventListener("error", (e) => {
+        logEl.textContent += "\nEventSource error\n";
+        es.close();
+        runBtn.disabled = false;
+      });
+    });
+
+    loadStory();
+    showOutputs();
+  </script>
+</body>
+</html>
