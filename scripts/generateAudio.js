@@ -1,55 +1,159 @@
 import fs from "fs-extra";
+import path from "path";
+import ffmpeg from "fluent-ffmpeg";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
+import { shouldUseElevenLabs } from "../elelab.js";
+import { generateAudioGemini, generateAudioGeminiWithParagraphs } from "./generateAudioGemini.js";
 
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
 const MODEL_ID = "eleven_multilingual_v2";
 const MAX_CHARS = 2500;
 
+function getTempDir() {
+  return path.join(process.env.DATA_DIR || process.cwd(), "temp");
+}
+
+function getAudioDuration(file) {
+  return new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(file, (err, data) => {
+      if (err) reject(err);
+      else resolve(data.format.duration);
+    });
+  });
+}
+
 export async function generateAudio() {
   await fs.ensureDir("voiceover");
   const outPath = "voiceover/narration.mp3";
-  const storyPath = "temp/story.txt";
+  const tempDir = getTempDir();
+  const storyPath = path.join(tempDir, "story.txt");
   const text = await fs.readFile(storyPath, "utf-8");
 
-  const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) {
-    console.warn("⚠ ELEVENLABS_API_KEY not set — creating silent narration.");
-    await createSilentNarration(outPath, text);
-    console.log("✅ Silent narration created (voiceover/narration.mp3)\n");
-    return;
+  let storyJson = null;
+  try {
+    storyJson = await fs.readJson(path.join(tempDir, "story.json"));
+  } catch {
+    // no story.json or invalid; will use full-story mode
+  }
+  const paragraphs = storyJson?.paragraphs?.filter((p) => (p?.text || "").trim());
+  const useParagraphMode = Array.isArray(paragraphs) && paragraphs.length > 0;
+
+  const forceGemini = process.env.USE_GEMINI_TTS === "1" || process.env.USE_GEMINI_TTS === "true";
+  const hasGeminiKey = !!(
+    process.env.GEMINI_MASTER_API_KEY ||
+    process.env.GEMINI_API_KEY ||
+    (process.env.GEMINI_MASTER_API_KEY_1 && process.env.GEMINI_MASTER_API_KEY_1.trim())
+  );
+
+  const elevenLabsCheck = await shouldUseElevenLabs();
+  const useElevenLabs = !forceGemini && elevenLabsCheck.use && elevenLabsCheck.apiKey;
+
+  if (useElevenLabs) {
+    try {
+      const elevenlabs = new ElevenLabsClient({ apiKey: elevenLabsCheck.apiKey });
+      if (useParagraphMode) {
+        const timings = [];
+        const buffers = [];
+        for (let i = 0; i < paragraphs.length; i++) {
+          const pText = paragraphs[i].text || paragraphs[i];
+          if (!String(pText).trim()) {
+            const start = timings.reduce((s, t) => s + t.duration, 0);
+            timings.push({ start, end: start, duration: 0 });
+            continue;
+          }
+          console.log(`  TTS paragraph ${i + 1}/${paragraphs.length}…`);
+          const chunk = String(pText).slice(0, MAX_CHARS);
+          const res = await elevenlabs.textToSpeech.convert(VOICE_ID, {
+            text: chunk,
+            modelId: MODEL_ID,
+            outputFormat: "mp3_44100_128",
+          });
+          const stream = res?.data ?? res;
+          const buf = await streamToBuffer(stream);
+          const partPath = path.join("voiceover", `p_${i}.mp3`);
+          await fs.writeFile(partPath, buf);
+          const duration = await getAudioDuration(partPath);
+          const start = timings.reduce((s, t) => s + t.duration, 0);
+          timings.push({ start, end: start + duration, duration });
+          buffers.push(buf);
+          await fs.remove(partPath).catch(() => {});
+        }
+        await concatMp3(buffers, outPath);
+        await fs.ensureDir(tempDir);
+        await fs.writeJson(path.join(tempDir, "paragraph_timings.json"), timings, { spaces: 2 });
+        console.log("✅ Audio generated (paragraph-wise) → voiceover/narration.mp3 + paragraph_timings.json");
+      } else {
+        if (text.length <= MAX_CHARS) {
+          const res = await elevenlabs.textToSpeech.convert(VOICE_ID, {
+            text,
+            modelId: MODEL_ID,
+            outputFormat: "mp3_44100_128",
+          });
+          const stream = res?.data ?? res;
+          const buf = await streamToBuffer(stream);
+          await fs.writeFile(outPath, buf);
+        } else {
+          const buffers = [];
+          for (let i = 0; i < text.length; i += MAX_CHARS) {
+            const chunk = text.slice(i, i + MAX_CHARS);
+            const res = await elevenlabs.textToSpeech.convert(VOICE_ID, {
+              text: chunk,
+              modelId: MODEL_ID,
+              outputFormat: "mp3_44100_128",
+            });
+            const stream = res?.data ?? res;
+            buffers.push(await streamToBuffer(stream));
+          }
+          await concatMp3(buffers, outPath);
+        }
+        console.log("✅ Audio generated (voiceover/narration.mp3)");
+      }
+      return;
+    } catch (err) {
+      console.warn("⚠ ElevenLabs TTS failed:", err?.message ?? err);
+      if (hasGeminiKey) {
+        console.log("  Falling back to Gemini TTS…");
+        try {
+          if (useParagraphMode) {
+            await generateAudioGeminiWithParagraphs(paragraphs);
+          } else {
+            await generateAudioGemini();
+          }
+          return;
+        } catch (e) {
+          console.warn("⚠ Gemini TTS failed:", e?.message ?? e);
+        }
+      }
+      await createSilentNarration(outPath, text);
+      console.log("✅ Silent narration created (voiceover/narration.mp3)\n");
+      return;
+    }
   }
 
-  try {
-    const elevenlabs = new ElevenLabsClient({ apiKey });
-    if (text.length <= MAX_CHARS) {
-      const res = await elevenlabs.textToSpeech.convert(VOICE_ID, {
-        text,
-        modelId: MODEL_ID,
-        outputFormat: "mp3_44100_128",
-      });
-      const stream = res?.data ?? res;
-      const buf = await streamToBuffer(stream);
-      await fs.writeFile(outPath, buf);
-    } else {
-      const buffers = [];
-      for (let i = 0; i < text.length; i += MAX_CHARS) {
-        const chunk = text.slice(i, i + MAX_CHARS);
-        const res = await elevenlabs.textToSpeech.convert(VOICE_ID, {
-          text: chunk,
-          modelId: MODEL_ID,
-          outputFormat: "mp3_44100_128",
-        });
-        const stream = res?.data ?? res;
-        buffers.push(await streamToBuffer(stream));
+  if (forceGemini || hasGeminiKey) {
+    try {
+      if (useParagraphMode) {
+        await generateAudioGeminiWithParagraphs(paragraphs);
+      } else {
+        await generateAudioGemini();
       }
-      await concatMp3(buffers, outPath);
+      return;
+    } catch (err) {
+      console.warn("⚠ Gemini TTS failed:", err?.message ?? err);
+      if (!elevenLabsCheck.apiKey) {
+        await createSilentNarration(outPath, text);
+        console.log("✅ Silent narration created (voiceover/narration.mp3)\n");
+        return;
+      }
     }
-    console.log("✅ Audio generated (voiceover/narration.mp3)");
-  } catch (err) {
-    console.warn("\n⚠ TTS failed:", err?.message ?? err);
-    await createSilentNarration(outPath, text);
-    console.log("✅ Silent narration created (voiceover/narration.mp3)\n");
   }
+
+  if (!elevenLabsCheck.use && elevenLabsCheck.reason) {
+    console.warn(`⚠ ElevenLabs not used: ${elevenLabsCheck.reason}`);
+  }
+  console.warn("⚠ No TTS available — creating silent narration.");
+  await createSilentNarration(outPath, text);
+  console.log("✅ Silent narration created (voiceover/narration.mp3)\n");
 }
 
 async function streamToBuffer(stream) {

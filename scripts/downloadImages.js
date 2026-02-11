@@ -2,6 +2,10 @@ import fs from "fs-extra";
 import { chromium } from "playwright";
 
 export async function downloadImages(scenes) {
+  if (!Array.isArray(scenes) || scenes.length === 0) {
+    console.warn("⚠ No image prompts — skipping image download.");
+    return;
+  }
   await fs.ensureDir("images");
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();

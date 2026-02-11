@@ -1,4 +1,9 @@
+import path from "path";
 import fs from "fs-extra";
+
+function getTempDir() {
+  return path.join(process.env.DATA_DIR || process.cwd(), "temp");
+}
 
 export async function generateSubtitles(text) {
   const lines = text.match(/.{1,80}(\s|$)/g) || [text];
@@ -14,8 +19,9 @@ export async function generateSubtitles(text) {
     srt += `${i + 1}\n${start} --> ${end}\n${line.trim()}\n\n`;
   });
 
-  await fs.ensureDir("temp");
-  await fs.writeFile("temp/subtitles.srt", srt);
+  const tempDir = getTempDir();
+  await fs.ensureDir(tempDir);
+  await fs.writeFile(path.join(tempDir, "subtitles.srt"), srt);
   console.log("✅ Subtitles generated");
 }
 

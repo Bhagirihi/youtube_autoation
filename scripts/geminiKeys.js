@@ -152,11 +152,49 @@ export async function checkGeminiKeys() {
   for (const { name, key } of candidates) {
     const result = await testKey(name, key);
     if (result.ok) return key;
-    console.warn(`${name}: ${result.error || "failed"}`);
+    console.warn(`${name}: ${result.error || "failed"} (expired or quota?)`);
   }
 
-  console.warn("⚠️ No key passed test; using first key anyway (CI/quota).");
-  return candidates[0].key;
+  console.warn("⚠️ All Gemini keys failed (expired or out of quota). Add or rotate keys in .env.");
+  return null;
+}
+
+/**
+ * Key for story generation. Use GEMINI_STORY_API_KEY if set, else first working key.
+ */
+export async function getStoryKey() {
+  const storyKey = process.env.GEMINI_STORY_API_KEY?.trim();
+  if (storyKey) {
+    const result = await testKey("GEMINI_STORY_API_KEY", storyKey);
+    if (result.ok) return storyKey;
+    console.warn(`GEMINI_STORY_API_KEY: ${result.error || "failed"}`);
+  }
+  return checkGeminiKeys();
+}
+
+/**
+ * List of keys for TTS. Use GEMINI_TTS_API_KEY only if set; else all GEMINI_* keys (for rotation per paragraph).
+ */
+export async function getTTSKeyList() {
+  const single = process.env.GEMINI_TTS_API_KEY?.trim();
+  if (single) return [single];
+
+  const fallbackKey = await fetchFallbackGeminiKey();
+  const list = [];
+  if (fallbackKey && typeof fallbackKey === "string" && fallbackKey.length > 0) {
+    list.push(fallbackKey);
+  }
+  const envKeys = Object.entries(process.env)
+    .filter(
+      ([k, v]) =>
+        k.startsWith("GEMINI") && typeof v === "string" && v.trim().length > 0
+    )
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, v]) => v.trim());
+  for (const k of envKeys) {
+    if (!list.includes(k)) list.push(k);
+  }
+  return list.length ? list : null;
 }
 
 export { MODELS };

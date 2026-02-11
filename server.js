@@ -52,35 +52,91 @@ app.get("/api/unsplash", async (req, res) => {
   }
 });
 
-app.get("/api/run", (_req, res) => {
+function sseStream(res, run) {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
-
   const send = (event, data) => {
     res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     res.flush?.();
   };
+  run(send).then(() => {}).catch(() => {});
+}
 
-  const proc = spawn("node", ["index.js"], {
-    cwd: __dirname,
-    stdio: ["ignore", "pipe", "pipe"],
-    env: { ...process.env, DATA_DIR: dataDir },
+app.get("/api/run", (_req, res) => {
+  sseStream(res, (send) => {
+    return new Promise((resolve, reject) => {
+      const proc = spawn("node", ["index.js"], {
+        cwd: __dirname,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, DATA_DIR: dataDir },
+      });
+      proc.stdout.setEncoding("utf8");
+      proc.stderr.setEncoding("utf8");
+      proc.stdout.on("data", (chunk) => send("log", { line: chunk.trim() }));
+      proc.stderr.on("data", (chunk) => send("log", { line: chunk.trim() }));
+      proc.on("close", (code) => {
+        send("done", { code });
+        res.end();
+        resolve();
+      });
+      proc.on("error", (err) => {
+        send("error", { message: err.message });
+        res.end();
+        reject(err);
+      });
+    });
   });
+});
 
-  proc.stdout.setEncoding("utf8");
-  proc.stderr.setEncoding("utf8");
-  proc.stdout.on("data", (chunk) => send("log", { line: chunk.trim() }));
-  proc.stderr.on("data", (chunk) => send("log", { line: chunk.trim() }));
+const STEPS = ["story", "audio", "subtitles", "images", "video", "thumbnail"];
 
-  proc.on("close", (code) => {
-    send("done", { code });
-    res.end();
-  });
-  proc.on("error", (err) => {
-    send("error", { message: err.message });
-    res.end();
+app.get("/api/status", async (_req, res) => {
+  try {
+    const tempDir = path.join(dataDir, "temp");
+    const baseDir = __dirname;
+    const steps = {
+      story: await fs.pathExists(path.join(tempDir, "story.json")),
+      audio: await fs.pathExists(path.join(baseDir, "voiceover", "narration.mp3")),
+      subtitles: await fs.pathExists(path.join(tempDir, "subtitles.srt")),
+      images: await fs.pathExists(path.join(baseDir, "images", "scene_1.jpg")),
+      video: await fs.pathExists(path.join(baseDir, "output", "final.mp4")),
+      thumbnail: await fs.pathExists(path.join(baseDir, "thumbnails", "thumb.jpg")),
+    };
+    res.json({ steps });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/run/step/:step", (req, res) => {
+  const step = req.params.step?.toLowerCase();
+  if (!step || !STEPS.includes(step)) {
+    return res.status(400).json({ error: "Invalid step. Use: " + STEPS.join(", ") });
+  }
+  sseStream(res, (send) => {
+    return new Promise((resolve, reject) => {
+      const proc = spawn("node", ["scripts/runStep.js", step], {
+        cwd: __dirname,
+        stdio: ["ignore", "pipe", "pipe"],
+        env: { ...process.env, DATA_DIR: dataDir },
+      });
+      proc.stdout.setEncoding("utf8");
+      proc.stderr.setEncoding("utf8");
+      proc.stdout.on("data", (chunk) => send("log", { line: chunk.trim() }));
+      proc.stderr.on("data", (chunk) => send("log", { line: chunk.trim() }));
+      proc.on("close", (code) => {
+        send("done", { code, step });
+        res.end();
+        resolve();
+      });
+      proc.on("error", (err) => {
+        send("error", { message: err.message });
+        res.end();
+        reject(err);
+      });
+    });
   });
 });
 

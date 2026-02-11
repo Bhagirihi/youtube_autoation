@@ -95,7 +95,7 @@ horror-auto-factory-v2/
    In the project **Settings → Environment Variables**, add at least:
    - `GEMINI_MASTER_API_KEY` (or any `GEMINI_*`) for story generation.
    - `UNSPLASH_ACCESS_KEY` for title/paragraph images.
-   - Optionally: `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`.
+   - Optionally: `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`. For **Gemini TTS**: `USE_GEMINI_TTS=1` and a `GEMINI_*` key; optional `GEMINI_TTS_VOICE` (e.g. `Charon`, `Algieba`).
 
 4. **Deploy**  
    Vercel will use `server.js` (exported as the app) and serve the UI. Static files are served from `public/`.

@@ -1,6 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
-import { checkGeminiKeys, MODELS } from "./geminiKeys.js";
+import { getStoryKey, MODELS } from "./geminiKeys.js";
 
 const getTempDir = () => path.join(process.env.DATA_DIR || process.cwd(), "temp");
 
@@ -8,10 +8,10 @@ export async function generateStory() {
   const prompt = await fs.readFile("prompts/story.prompt.txt", "utf-8");
   let data;
 
-  const apiKey = await checkGeminiKeys();
+  const apiKey = await getStoryKey();
   if (!apiKey) {
     throw new Error(
-      "No Gemini key available. Set GEMINI_API_KEY (or other GEMINI_*) in .env or ensure fallback key is available. Stopping."
+      "No Gemini key for story. Set GEMINI_STORY_API_KEY or GEMINI_* in .env (or ensure fallback). Stopping."
     );
   }
 
@@ -84,11 +84,41 @@ export async function generateStory() {
     );
   }
 
+  ensureIntroOutro(data);
+
   const tempDir = getTempDir();
   await fs.ensureDir(tempDir);
   await fs.writeJson(path.join(tempDir, "story.json"), data, { spaces: 2 });
   await fs.writeFile(path.join(tempDir, "story.txt"), data.story);
   return data;
+}
+
+const INTRO =
+  "नमस्कार दोस्तों! हॉरर पॉडकास्ट अड्डा — डर का एक नया ठिकाना में आपका एक बार फिर स्वागत है। आज हम आपके लिए लेकर आए हैं एक और नई डरावनी कहानी…";
+const OUTRO =
+  "तो दोस्तों, यह थी हमारी आज की हॉरर स्टोरी। अगर आपको यह कहानी पसंद आई हो तो लाइक करें, शेयर करें और चैनल को सब्सक्राइब करना न भूलें... मिलते हैं जल्द ही एक और नई डरावनी कहानी के साथ…";
+
+function ensureIntroOutro(data) {
+  let story = (data.story || "").trim();
+  if (story && !story.startsWith(INTRO)) {
+    story = INTRO + "\n\n" + story;
+  }
+  if (story && !story.endsWith(OUTRO)) {
+    story = story + "\n\n" + OUTRO;
+  }
+  data.story = story;
+
+  const paras = data.paragraphs;
+  if (Array.isArray(paras) && paras.length > 0) {
+    const first = paras[0];
+    if (first && first.text && !first.text.trim().startsWith(INTRO)) {
+      first.text = INTRO + " " + first.text.trim();
+    }
+    const last = paras[paras.length - 1];
+    if (last && last.text && !last.text.trim().endsWith(OUTRO)) {
+      last.text = last.text.trim() + " " + OUTRO;
+    }
+  }
 }
 
 function parseStoryJson(raw) {

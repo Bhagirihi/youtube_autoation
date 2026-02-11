@@ -6,7 +6,7 @@ export async function preflight() {
   if (!hasGeminiKey) {
     tips.push({
       what: "AI story",
-      why: "No GEMINI_* API key in .env, so a sample story will be used.",
+      why: "No GEMINI_* API key in .env — story generation will fail.",
       fix: "Add at least one key to .env: GEMINI_MASTER_API_KEY=your_key (from Google AI Studio).",
     });
   }
