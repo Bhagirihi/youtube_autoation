@@ -37,7 +37,7 @@ If Ollama is not running, the pipeline uses a **sample story** so the rest of th
    ```
 
 2. **Add background music**
-   - Place at least one MP3 in `assets/music/` named **`horror.mp3`** (used by the video step).
+   - Place BGM in `assets/music/` as **`horror.mov`** or **`horror.mp3`** (used by the video step).
 
 3. **Install dependencies** (already done if you ran setup)
    ```bash
@@ -66,7 +66,7 @@ horror-auto-factory-v2/
 ├── .env
 ├── index.js
 ├── prompts/story.prompt.txt
-├── assets/music/          ← Put horror.mp3 here
+├── assets/music/          ← Put horror.mov or horror.mp3 here
 ├── temp/                  ← story.json, story.txt, subtitles.srt
 ├── voiceover/narration.mp3
 ├── images/                ← scene_1.jpg … scene_n.jpg
