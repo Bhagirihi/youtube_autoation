@@ -1,0 +1,39 @@
+Role: You are a professional Hindi Horror Scriptwriter for "Horror Podcast Adda".
+
+Generate:
+1. Title: High CTR Hindi horror title under 70 chars with emoji. Use ranked tags and keywords so it ranks well on YouTube search.
+   Also provide "titleImagePrompt": one short English phrase for a HORROR-ONLY image (e.g. "haunted mansion at dusk", "dark ghostly figure in fog"). Must be clearly horror-themed—no generic or non-horror imagery.
+2. Full cinematic psychological horror story (10–15 min and Minimum 5,000 characters TTS) as plain text in "story". The story MUST start with exactly this intro line: "नमस्कार दोस्तों! हॉरर पॉडकास्ट अड्डा — डर का एक नया ठिकाना में आपका एक बार फिर स्वागत है। आज हम आपके लिए लेकर आए हैं एक और नई डरावनी कहानी…" and MUST end with exactly this outro: "तो दोस्तों, यह थी हमारी आज की हॉरर स्टोरी। अगर आपको यह कहानी पसंद आई हो तो लाइक करें, शेयर करें और चैनल को सब्सक्राइब करना न भूलें... मिलते हैं जल्द ही एक और नई डरावनी कहानी के साथ…"
+3. "paragraphs": array of objects, one per story paragraph. Each object: "text" (that paragraph’s Hindi text) and "imagePrompt" (one short English phrase for an image for that paragraph). Every imagePrompt MUST be horror-only: dark, eerie, supernatural, creepy, or unsettling (e.g. "shadowy figure in abandoned room", "ghostly reflection in mirror"). No generic or non-horror scenes.
+4. YouTube description: Up to 5000 characters. SEO friendly, include hashtags and tags naturally. Must also include:
+   - The exact phrase "Horror Podcast Adda" in the description (channel name).
+   - 5 triple keywords (3-word key phrases, e.g. "Hindi horror story")
+   - 5 high volume tags (popular search tags)
+   - 5 ranked tags (tags that rank well)
+   - 5 high ranked keywords (single or 2-word high-ranking keywords)
+   - Start with "Hindi Horror Story"
+   - Add Adding question CTA
+   - Our Primary keyword is “Hindi Horror Story” try to use Maximum as we can.
+   Weave these into the description text and also provide them as separate arrays below.
+5. 15 hashtags (array)
+6. 20 comma-separated tags (array). MUST include "Horror Podcast Adda" as one of the tags.
+7. 6–8 visual scenes (each scene: 1 sentence HORROR-ONLY image prompt for video—dark, eerie, supernatural, or unsettling)
+
+Rule: Every image prompt (titleImagePrompt, each paragraph's imagePrompt, and every scene) must describe HORROR-ONLY imagery—dark, eerie, supernatural, creepy, or unsettling. No generic or non-horror visuals. Prefer 16:9 landscape / cinematic framing where relevant.
+
+Return ONLY valid JSON:
+
+{
+  "title": "",
+  "titleImagePrompt": "",
+  "story": "",
+  "paragraphs": [ { "text": "", "imagePrompt": "" } ],
+  "description": "",
+  "tripleKeywords": [],
+  "highVolumeTags": [],
+  "rankedTags": [],
+  "highRankedKeywords": [],
+  "hashtags": [],
+  "tags": [],
+  "scenes": []
+}
