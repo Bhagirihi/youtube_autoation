@@ -4,10 +4,10 @@ import { getStoryKey, MODELS } from "./geminiKeys.js";
 
 const getTempDir = () => path.join(process.env.DATA_DIR || process.cwd(), "temp");
 
-export async function generateStory() {
-  const prompt = await fs.readFile("prompts/story.prompt.txt", "utf-8");
-  let data;
+// If USE_TWO_STEP_STORY is set (any value) → single prompt. If not set → two-step (long story + metadata).
+const USE_TWO_STEP_STORY = !process.env.USE_TWO_STEP_STORY;
 
+export async function generateStory() {
   const apiKey = await getStoryKey();
   if (!apiKey) {
     throw new Error(
@@ -15,6 +15,87 @@ export async function generateStory() {
     );
   }
 
+  let data;
+  if (USE_TWO_STEP_STORY) {
+    data = await generateStoryTwoStep(apiKey);
+  } else {
+    const prompt = await fs.readFile("prompts/story.prompt.txt", "utf-8");
+    data = await callGeminiStory(apiKey, prompt, (parsed) => parsed);
+    if (!data.paragraphs || !Array.isArray(data.paragraphs) || data.paragraphs.length === 0) {
+      const scenes = data.scenes && data.scenes.length ? data.scenes : ["horror scene"];
+      const parts = (data.story || "")
+        .split(/\n\n+/)
+        .map((t) => t.trim())
+        .filter(Boolean);
+      data.paragraphs = parts.map((text, i) => ({
+        text,
+        imagePrompt: scenes[i % scenes.length] || "cinematic horror",
+      }));
+    }
+  }
+
+  if (!USE_TWO_STEP_STORY) {
+    console.log("✅ Story generated (Gemini)");
+  }
+
+  ensureIntroOutro(data);
+
+  const tempDir = getTempDir();
+  await fs.ensureDir(tempDir);
+  await fs.writeJson(path.join(tempDir, "story.json"), data, { spaces: 2 });
+  await fs.writeFile(path.join(tempDir, "story.txt"), data.story);
+  return data;
+}
+
+async function generateStoryTwoStep(apiKey) {
+  const promptPart1 = await fs.readFile("prompts/story-part1.prompt.txt", "utf-8");
+  const promptPart2Template = await fs.readFile("prompts/story-part2.prompt.txt", "utf-8");
+
+  const part1 = await callGeminiStory(apiKey, promptPart1, (data) => {
+    if (!data.title && data.story) throw new Error("Part 1 missing title or story");
+    return data;
+  });
+  if (!part1.paragraphs || !Array.isArray(part1.paragraphs) || part1.paragraphs.length === 0) {
+    const scenes = part1.scenes && part1.scenes.length ? part1.scenes : ["horror scene"];
+    const parts = (part1.story || "")
+      .split(/\n\n+/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    part1.paragraphs = parts.map((text, i) => ({
+      text,
+      imagePrompt: scenes[i % scenes.length] || "cinematic horror",
+    }));
+  }
+  console.log("✅ Part 1 done: story + title + images (~" + (part1.story?.length || 0) + " chars)");
+
+  const storySnippet =
+    (part1.story || "").length > 12000
+      ? (part1.story || "").slice(0, 11000) + "\n\n[... story truncated for metadata prompt ...]"
+      : part1.story || "";
+  const promptPart2 =
+    `INPUT:\n\nTitle: ${(part1.title || "").replace(/"/g, '\\"')}\n\nStory:\n${storySnippet}\n\n---\n\n` +
+    promptPart2Template;
+
+  const part2 = await callGeminiStory(apiKey, promptPart2, (data) => data);
+  console.log("✅ Part 2 done: description, keywords, tags, hashtags");
+
+  return {
+    title: part1.title,
+    titleImagePrompt: part1.titleImagePrompt,
+    story: part1.story,
+    paragraphs: part1.paragraphs,
+    scenes: part1.scenes || [],
+    description: part2.description ?? "",
+    tripleKeywords: part2.tripleKeywords ?? [],
+    highVolumeTags: part2.highVolumeTags ?? [],
+    rankedTags: part2.rankedTags ?? [],
+    highRankedKeywords: part2.highRankedKeywords ?? [],
+    hashtags: part2.hashtags ?? [],
+    tags: part2.tags ?? [],
+  };
+}
+
+async function callGeminiStory(apiKey, prompt, validate) {
   let lastErr;
   for (const model of MODELS) {
     try {
@@ -53,7 +134,6 @@ export async function generateStory() {
         continue;
       }
 
-      // MAX_TOKENS means response was truncated; try to parse and salvage
       const isTruncated = finishReason === "MAX_TOKENS" || finishReason === 2;
       if (isTruncated) {
         console.warn("⚠️ Response truncated (MAX_TOKENS); attempting to use partial JSON.");
@@ -64,38 +144,16 @@ export async function generateStory() {
         continue;
       }
 
-      data = parseStoryJson(text, isTruncated);
-      if (!data.paragraphs || !Array.isArray(data.paragraphs) || data.paragraphs.length === 0) {
-        const scenes = data.scenes && data.scenes.length ? data.scenes : ["horror scene"];
-        const parts = (data.story || "")
-          .split(/\n\n+/)
-          .map((t) => t.trim())
-          .filter(Boolean);
-        data.paragraphs = parts.map((text, i) => ({
-          text,
-          imagePrompt: scenes[i % scenes.length] || "cinematic horror",
-        }));
-      }
-      console.log("✅ Story generated (Gemini)");
-      break;
+      const data = parseStoryJson(text, isTruncated);
+      validate(data);
+      return data;
     } catch (err) {
       lastErr = err;
     }
   }
-
-  if (!data) {
-    throw new Error(
-      `Gemini did not return a new story. Last error: ${lastErr?.message ?? lastErr}. Stopping.`
-    );
-  }
-
-  ensureIntroOutro(data);
-
-  const tempDir = getTempDir();
-  await fs.ensureDir(tempDir);
-  await fs.writeJson(path.join(tempDir, "story.json"), data, { spaces: 2 });
-  await fs.writeFile(path.join(tempDir, "story.txt"), data.story);
-  return data;
+  throw new Error(
+    `Gemini did not return valid story. Last error: ${lastErr?.message ?? lastErr}`
+  );
 }
 
 const INTRO =

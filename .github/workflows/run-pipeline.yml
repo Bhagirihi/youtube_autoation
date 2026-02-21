@@ -4,6 +4,7 @@
 #
 # Shortcut: add ONE secret in Settings → Secrets → Actions:
 #   ENV_FILE = entire contents of your .env file (copy-paste). All keys (Gemini, TTS, YouTube, etc.) in one go.
+# Story mode: if ENV_FILE contains USE_TWO_STEP_STORY=1 → single prompt; if omitted → two-step (long story + metadata).
 name: Run pipeline
 
 on:
