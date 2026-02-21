@@ -1,0 +1,91 @@
+# Horror Auto Factory — run full pipeline (story → audio → images → video → thumbnail)
+# Optional: upload to YouTube (set GitHub Secrets and choose "Upload to YouTube" when triggering).
+name: Run pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      upload_to_youtube:
+        description: "Upload video to YouTube after pipeline"
+        required: false
+        default: false
+        type: boolean
+  # Optional: run on a schedule (uncomment and adjust)
+  # schedule:
+  #   - cron: "0 14 * * *"  # e.g. daily at 14:00 UTC
+
+env:
+  DATA_DIR: ${{ github.workspace }}
+  NODE_ENV: production
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install system deps (ffmpeg)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Create working dirs
+        run: |
+          mkdir -p temp voiceover images output thumbnails
+
+      - name: Run pipeline
+        env:
+          GEMINI_MASTER_API_KEY: ${{ secrets.GEMINI_MASTER_API_KEY }}
+          GEMINI_MASTER_API_KEY_1: ${{ secrets.GEMINI_MASTER_API_KEY_1 }}
+          GEMINI_MASTER_API_KEY_2: ${{ secrets.GEMINI_MASTER_API_KEY_2 }}
+          GEMINI_STORY_API_KEY: ${{ secrets.GEMINI_STORY_API_KEY }}
+          GEMINI_TTS_API_KEY: ${{ secrets.GEMINI_TTS_API_KEY }}
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+          ELEVENLABS_VOICE_ID: ${{ secrets.ELEVENLABS_VOICE_ID }}
+          USE_GEMINI_TTS: ${{ secrets.USE_GEMINI_TTS }}
+          USE_SARVAM_TTS: ${{ secrets.USE_SARVAM_TTS }}
+          SARVAM_API_KEY: ${{ secrets.SARVAM_API_KEY }}
+          SARVAM_SPEAKER: ${{ secrets.SARVAM_SPEAKER }}
+          SARVAM_PACE: ${{ secrets.SARVAM_PACE }}
+          SARVAM_LANGUAGE: ${{ secrets.SARVAM_LANGUAGE }}
+          SARVAM_MODEL: ${{ secrets.SARVAM_MODEL }}
+          BGM_PATH: ${{ secrets.BGM_PATH }}
+          BGM_VOLUME: ${{ secrets.BGM_VOLUME }}
+          VIDEO_PRESET: ${{ secrets.VIDEO_PRESET }}
+          VIDEO_FAST: ${{ secrets.VIDEO_FAST }}
+        run: node index.js
+
+      - name: Upload to YouTube (optional)
+        if: success() && github.event.inputs.upload_to_youtube == 'true'
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REDIRECT_URI: ${{ secrets.YT_REDIRECT_URI }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_PRIVACY_STATUS: ${{ secrets.YT_PRIVACY_STATUS }}
+        run: node scripts/uploadYoutubeFromCLI.js
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipeline-output
+          path: |
+            output/final.mp4
+            thumbnails/thumb.jpg
+            temp/story.json
+          if-no-files-found: warn

@@ -27,7 +27,7 @@ export async function generateStory() {
             contents: [{ parts: [{ text: prompt }] }],
             generationConfig: {
               temperature: 0.9,
-              maxOutputTokens: 8192,
+              maxOutputTokens: 16384,
               responseMimeType: "application/json",
             },
           }),
@@ -42,14 +42,8 @@ export async function generateStory() {
 
       const candidate = body?.candidates?.[0];
       const finishReason = candidate?.finishReason;
-      if (finishReason && finishReason !== "STOP" && finishReason !== 1) {
-        lastErr = new Error(
-          `Gemini blocked or stopped: finishReason=${finishReason}`
-        );
-        continue;
-      }
-
       const text = candidate?.content?.parts?.[0]?.text?.trim?.();
+
       if (!text) {
         lastErr = new Error(
           finishReason
@@ -59,7 +53,18 @@ export async function generateStory() {
         continue;
       }
 
-      data = parseStoryJson(text);
+      // MAX_TOKENS means response was truncated; try to parse and salvage
+      const isTruncated = finishReason === "MAX_TOKENS" || finishReason === 2;
+      if (isTruncated) {
+        console.warn("⚠️ Response truncated (MAX_TOKENS); attempting to use partial JSON.");
+      } else if (finishReason && finishReason !== "STOP" && finishReason !== 1) {
+        lastErr = new Error(
+          `Gemini blocked or stopped: finishReason=${finishReason}`
+        );
+        continue;
+      }
+
+      data = parseStoryJson(text, isTruncated);
       if (!data.paragraphs || !Array.isArray(data.paragraphs) || data.paragraphs.length === 0) {
         const scenes = data.scenes && data.scenes.length ? data.scenes : ["horror scene"];
         const parts = (data.story || "")
@@ -119,11 +124,39 @@ function ensureIntroOutro(data) {
       last.text = last.text.trim() + " " + OUTRO;
     }
   }
+
+  const tagName = "Horror Podcast Adda";
+  if (data.description && !data.description.includes(tagName)) {
+    data.description = data.description.trim() + "\n\n" + tagName;
+  }
+  if (Array.isArray(data.tags) && !data.tags.some((t) => String(t).trim() === tagName)) {
+    data.tags = [...data.tags, tagName];
+  }
 }
 
-function parseStoryJson(raw) {
+function parseStoryJson(raw, tryFixTruncated = false) {
   raw = raw.trim();
   const codeBlock = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlock) raw = codeBlock[1].trim();
+
+  const attempts = [raw];
+  if (tryFixTruncated) {
+    const openBraces = (raw.match(/{/g) || []).length - (raw.match(/}/g) || []).length;
+    const openBrackets = (raw.match(/\[/g) || []).length - (raw.match(/]/g) || []).length;
+    if (openBraces > 0 || openBrackets > 0) {
+      // Typical truncation: inside "paragraphs": [ ... so try ]} then full close
+      attempts.push(raw + "]}");
+      let fixed = raw;
+      for (let i = 0; i < openBrackets; i++) fixed += "]";
+      for (let i = 0; i < openBraces; i++) fixed += "}";
+      attempts.push(fixed);
+    }
+  }
+
+  for (const s of attempts) {
+    try {
+      return JSON.parse(s);
+    } catch (_) {}
+  }
   return JSON.parse(raw);
 }

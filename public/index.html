@@ -277,11 +277,31 @@
       background: var(--surface-hover); border: 1px solid var(--border);
       border-radius: 4px; color: var(--text); display: inline-block; margin: 0.15rem 0.15rem 0 0;
     }
+    .studio-chips { display: flex; flex-wrap: wrap; gap: 0.15rem; align-items: center; }
+    .studio-keywords { display: flex; flex-direction: column; gap: 0.75rem; }
+    .studio-keywords-block { }
+    .studio-keywords-label { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 0.25rem; }
     .studio-copy-btn { font-size: 0.7rem; padding: 0.2rem 0.5rem; }
     .empty-state { text-align: center; padding: 2rem 1rem; color: var(--text-muted); }
     .empty-state p { margin: 0 0 0.5rem 0; font-size: 0.9rem; }
     .refresh { color: var(--accent); text-decoration: none; font-size: 0.9rem; font-weight: 500; }
     .refresh:hover { text-decoration: underline; }
+    .tts-row {
+      display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;
+      margin-bottom: 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--border);
+    }
+    .tts-row label { font-size: 0.8125rem; font-weight: 500; color: var(--text-muted); }
+    .tts-row select {
+      font-family: inherit; font-size: 0.9rem; padding: 0.4rem 0.75rem;
+      background: var(--surface-hover); color: var(--text); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); min-width: 200px;
+    }
+    .tts-row select:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .tts-credit { font-size: 0.9rem; color: var(--text); font-weight: 500; }
+    .tts-credit .num { color: var(--success); }
+    .youtube-progress-wrap { margin-top: 0.75rem; }
+    .youtube-progress-bar { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+    .youtube-progress-fill { height: 100%; background: var(--accent); border-radius: 4px; width: 0%; transition: width 0.2s ease; }
   </style>
 </head>
 <body>
@@ -298,6 +318,13 @@
 
     <div class="card">
       <h2 class="card-title">Pipeline</h2>
+      <div class="tts-row">
+        <label for="ttsSelect">TTS (Audio)</label>
+        <select id="ttsSelect" aria-label="TTS provider">
+          <option value="">Loading…</option>
+        </select>
+        <span id="ttsCredit" class="tts-credit"></span>
+      </div>
       <p class="pipeline-intro">
         <strong>Run full pipeline</strong> to generate everything in order. If something fails, run the step that failed (or any step) manually below.
       </p>
@@ -334,6 +361,18 @@
           <div id="metaTags" class="studio-chips"></div>
           <button type="button" class="btn btn-outline btn-sm" id="copyTagsBtn">Copy tags</button>
         </div>
+        <div class="studio-section" id="metaKeywordsSection">
+          <div class="studio-section-title">Keywords</div>
+          <div id="metaKeywords" class="studio-keywords"></div>
+        </div>
+        <div class="studio-section" id="metaHashtagsSection">
+          <div class="studio-section-title">Hashtags</div>
+          <div id="metaHashtags" class="studio-chips"></div>
+        </div>
+        <div class="studio-section">
+          <button type="button" class="btn btn-outline btn-sm" id="regenerateDescTagsBtn">Regenerate description &amp; tags</button>
+          <span id="regenerateDescTagsStatus" class="tts-credit" style="margin-left: 0.5rem;"></span>
+        </div>
       </div>
       <div id="storyPlaceholderWrap" class="empty-state">
         <p id="storyPlaceholder">No story yet. Run the <strong>Story</strong> step (or full pipeline) to generate.</p>
@@ -360,6 +399,23 @@
         </div>
       </div>
     </div>
+
+    <div class="card">
+      <h2 class="card-title">YouTube</h2>
+      <p class="pipeline-intro">
+        Connect your channel once (tokens saved to <code>auth/</code> — no .env edit needed). Then push the current video to YouTube.
+      </p>
+      <div class="tts-row" style="border-bottom: none; padding-bottom: 0;">
+        <span id="youtubeStatusLabel" class="tts-credit" style="margin-right: 0.5rem;"></span>
+        <a href="/api/youtube/auth" target="_blank" rel="noopener" class="btn btn-outline" id="youtubeConnectLink">Connect YouTube</a>
+        <button type="button" class="btn" id="youtubeUploadBtn">Upload to YouTube</button>
+        <span id="youtubeUploadStatus" class="tts-credit"></span>
+      </div>
+      <div id="youtubeProgressWrap" class="youtube-progress-wrap" style="display: none;">
+        <div class="youtube-progress-bar"><div id="youtubeProgressFill" class="youtube-progress-fill"></div></div>
+        <div id="youtubeProgressText" class="tts-credit" style="margin-top: 0.25rem;"></div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -370,12 +426,77 @@
       { id: "images", label: "Images" },
       { id: "video", label: "Video" },
       { id: "thumbnail", label: "Thumbnail" },
+      { id: "regenerate-desc-tags", label: "Regenerate description & tags" },
     ];
     const logEl = document.getElementById("log");
     const runFullBtn = document.getElementById("runFullBtn");
     const stepsGrid = document.getElementById("stepsGrid");
+    const ttsSelect = document.getElementById("ttsSelect");
+    const ttsCredit = document.getElementById("ttsCredit");
     let runningStepId = null;
     let fullPipelineRunning = false;
+    let ttsProviders = [];
+
+    const TTS_STORAGE_KEY = "horror-pipeline-tts";
+
+    function getSelectedTTS() {
+      const v = ttsSelect?.value?.trim();
+      return v || null;
+    }
+
+    async function loadTTSOptions() {
+      try {
+        const r = await fetch("/api/tts-options");
+        const data = await r.json();
+        ttsProviders = data.providers || [];
+        ttsSelect.innerHTML = "";
+        const saved = localStorage.getItem(TTS_STORAGE_KEY);
+        let hasSelection = false;
+        ttsProviders.forEach((p) => {
+          const opt = document.createElement("option");
+          opt.value = p.id;
+          opt.textContent = `${p.label} — ${p.credit}`;
+          opt.disabled = !p.available;
+          if (p.available && (p.id === saved || (!saved && !hasSelection))) {
+            opt.selected = true;
+            hasSelection = true;
+          }
+          ttsSelect.appendChild(opt);
+        });
+        if (!hasSelection && ttsProviders.length) {
+          const first = ttsProviders.find((p) => p.available);
+          if (first) {
+            ttsSelect.value = first.id;
+            localStorage.setItem(TTS_STORAGE_KEY, first.id);
+          }
+        } else if (hasSelection && saved) {
+          localStorage.setItem(TTS_STORAGE_KEY, ttsSelect.value);
+        }
+        updateTTSCreditLabel();
+      } catch (e) {
+        ttsSelect.innerHTML = '<option value="">Failed to load</option>';
+      }
+    }
+
+    function updateTTSCreditLabel() {
+      const id = ttsSelect?.value;
+      const p = ttsProviders.find((x) => x.id === id);
+      if (!p) {
+        ttsCredit.innerHTML = "";
+        return;
+      }
+      if (p.totalCredit != null && p.totalCredit > 0) {
+        const label = p.id === "elevenlabs" ? "credits" : "keys";
+        ttsCredit.innerHTML = `Total: <span class="num">${Number(p.totalCredit).toLocaleString()}</span> ${label}`;
+      } else {
+        ttsCredit.textContent = p.credit;
+      }
+    }
+
+    ttsSelect?.addEventListener("change", () => {
+      localStorage.setItem(TTS_STORAGE_KEY, ttsSelect.value || "");
+      updateTTSCreditLabel();
+    });
 
     async function fetchStatus() {
       try {
@@ -417,8 +538,11 @@
     }
 
     function streamRun(url, onDone) {
+      const tts = getSelectedTTS();
+      const sep = url.includes("?") ? "&" : "?";
+      const fullUrl = tts ? `${url}${sep}tts=${encodeURIComponent(tts)}` : url;
       logEl.textContent = "Running…\n";
-      const es = new EventSource(url);
+      const es = new EventSource(fullUrl);
       es.addEventListener("log", (e) => {
         const d = JSON.parse(e.data);
         if (d.line) {
@@ -461,6 +585,8 @@
     }
 
     runFullBtn.addEventListener("click", runFull);
+
+    loadTTSOptions();
 
     let unsplashKeyMissingShown = false;
     async function fetchUnsplashUrl(query) {
@@ -578,8 +704,7 @@
           }
         }
 
-        const tagsEl = document.getElementById("metaTags");
-        const tags = Array.isArray(data.tags) ? data.tags : [];
+        const tags = toTagsArray(data.tags);
         document.getElementById("copyTagsBtn").onclick = () => copyToClipboard(tags.join(", "), "copyTagsBtn", "Copy tags");
       } catch (e) {
         document.getElementById("studioContent").style.display = "none";
@@ -598,16 +723,58 @@
       });
     }
 
+    function toTagsArray(v) {
+      if (Array.isArray(v)) return v.map((t) => String(t).trim()).filter(Boolean);
+      if (typeof v === "string") return v.split(",").map((s) => s.trim()).filter(Boolean);
+      return [];
+    }
+
     function renderStudioMeta(data) {
-      const arr = (v) => (Array.isArray(v) ? v : []);
       document.getElementById("metaDescription").textContent = data.description || "";
       const tagsContainer = document.getElementById("metaTags");
       tagsContainer.innerHTML = "";
-      arr(data.tags).forEach((t) => {
+      toTagsArray(data.tags).forEach((t) => {
         const span = document.createElement("span");
         span.className = "studio-chip";
         span.textContent = t;
         tagsContainer.appendChild(span);
+      });
+      const keywordsEl = document.getElementById("metaKeywords");
+      keywordsEl.innerHTML = "";
+      const kw = data.keywords || {};
+      const keywordLabels = [
+        { key: "tripleKeywords", label: "Triple keywords" },
+        { key: "highVolumeTags", label: "High volume" },
+        { key: "rankedTags", label: "Ranked" },
+        { key: "highRankedKeywords", label: "High ranked" },
+      ];
+      keywordLabels.forEach(({ key, label }) => {
+        const list = Array.isArray(kw[key]) ? kw[key] : [];
+        if (list.length === 0) return;
+        const block = document.createElement("div");
+        block.className = "studio-keywords-block";
+        const title = document.createElement("div");
+        title.className = "studio-keywords-label";
+        title.textContent = label;
+        block.appendChild(title);
+        const chips = document.createElement("div");
+        chips.className = "studio-chips";
+        list.forEach((item) => {
+          const span = document.createElement("span");
+          span.className = "studio-chip";
+          span.textContent = item;
+          chips.appendChild(span);
+        });
+        block.appendChild(chips);
+        keywordsEl.appendChild(block);
+      });
+      const hashtagsContainer = document.getElementById("metaHashtags");
+      hashtagsContainer.innerHTML = "";
+      toTagsArray(data.hashtags).forEach((h) => {
+        const span = document.createElement("span");
+        span.className = "studio-chip";
+        span.textContent = h;
+        hashtagsContainer.appendChild(span);
       });
     }
 
@@ -625,6 +792,102 @@
       loadStory();
     });
 
+    document.getElementById("regenerateDescTagsBtn")?.addEventListener("click", async () => {
+      const btn = document.getElementById("regenerateDescTagsBtn");
+      const statusEl = document.getElementById("regenerateDescTagsStatus");
+      btn.disabled = true;
+      statusEl.textContent = "Regenerating…";
+      try {
+        const r = await fetch("/api/story/regenerate-description-tags", { method: "POST" });
+        const data = await r.json().catch(() => ({}));
+        if (r.ok && data.ok) {
+          statusEl.textContent = "Done.";
+          loadStory();
+        } else {
+          statusEl.textContent = data.error || "Failed.";
+        }
+      } catch (e) {
+        statusEl.textContent = e.message || "Error";
+      }
+      btn.disabled = false;
+      setTimeout(() => { statusEl.textContent = ""; }, 3000);
+    });
+
+    async function loadYoutubeStatus() {
+      const label = document.getElementById("youtubeStatusLabel");
+      const link = document.getElementById("youtubeConnectLink");
+      try {
+        const r = await fetch("/api/youtube/status");
+        const data = await r.json();
+        if (data.connected) {
+          label.textContent = "✓ YouTube connected";
+          label.style.color = "var(--success)";
+          link.textContent = "Reconnect";
+        } else {
+          label.textContent = "";
+          link.textContent = "Connect YouTube";
+        }
+      } catch (_) {
+        label.textContent = "";
+      }
+    }
+
+    document.getElementById("youtubeUploadBtn")?.addEventListener("click", async () => {
+      const btn = document.getElementById("youtubeUploadBtn");
+      const status = document.getElementById("youtubeUploadStatus");
+      const wrap = document.getElementById("youtubeProgressWrap");
+      const fill = document.getElementById("youtubeProgressFill");
+      const progressText = document.getElementById("youtubeProgressText");
+      btn.disabled = true;
+      status.textContent = "";
+      wrap.style.display = "block";
+      fill.style.width = "0%";
+      progressText.textContent = "Uploading… 0%";
+      try {
+        const r = await fetch("/api/youtube/upload", {
+          method: "POST",
+          headers: { Accept: "text/event-stream" },
+        });
+        if (!r.ok || !r.body) {
+          const data = await r.json().catch(() => ({}));
+          throw new Error(data.error || "Upload failed");
+        }
+        const reader = r.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          const lines = buf.split("\n\n");
+          buf = lines.pop() || "";
+          for (const line of lines) {
+            if (line.startsWith("data: ")) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.progress != null) {
+                  fill.style.width = data.progress + "%";
+                  progressText.textContent = data.done ? "Done." : `Uploading… ${data.progress}%`;
+                }
+                if (data.done) {
+                  status.textContent = data.message || data.error || "Uploaded.";
+                  if (data.message) loadYoutubeStatus();
+                  if (data.error) throw new Error(data.error);
+                }
+              } catch (_) {}
+            }
+          }
+        }
+        if (status.textContent === "") status.textContent = "Uploaded.";
+      } catch (e) {
+        status.textContent = e.message || "Error";
+        progressText.textContent = "Failed.";
+      }
+      btn.disabled = false;
+      setTimeout(() => { wrap.style.display = "none"; }, 2500);
+    });
+
+    loadYoutubeStatus();
     fetchStatus().then(renderSteps);
     loadStory();
     showOutputs();

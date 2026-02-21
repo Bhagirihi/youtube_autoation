@@ -29,11 +29,11 @@ import { checkGeminiKeys, getTTSKeyList } from "./geminiKeys.js";
 // `;
 
 const STYLE_PROMPT = `
-Deep male voice. Natural storytelling pace. Same pacing for every paragraph.
+Deep male voice. Slightly slower, suspenseful pace for horror. Same pacing for every paragraph.
 Minimal pauses between sentences. No long gaps or silence. No drawn-out vowels.
 Calm, grounded delivery with subtle psychological tension.
 Controlled breathing. Steady rhythm. Keep momentum; avoid slowing down mid-story.
-Emotion through tone, not speed. Cinematic but efficient narration.
+Emotion through tone, not speed. Cinematic, eerie narration.
 `;
 
 const VOICE_NAME = process.env.GEMINI_TTS_VOICE || "Charon"; // Charon = Informative; Algenib = Gravelly
@@ -336,9 +336,6 @@ export async function generateAudioGeminiWithParagraphs(paragraphs) {
     { stdio: "inherit" },
   );
   await fs.remove(listPath).catch(() => {});
-  for (let i = 0; i < paragraphs.length; i++) {
-    await fs.remove(path.join(voiceoverDir, `p_${i}.mp3`)).catch(() => {});
-  }
 
   const tempDir = getTempDir();
   await fs.ensureDir(tempDir);

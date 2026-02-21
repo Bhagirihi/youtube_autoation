@@ -39,20 +39,23 @@ async function fetchFallbackElevenLabsKey() {
 }
 
 /**
- * Returns candidate API keys to try: env first, then fallback from API.
+ * Returns candidate API keys to try: env keys (ELEVENLABS_API_KEY, ELEVENLABS_API_KEY_1, ... ELEVEN_API_KEY) then fallback from API.
  */
-async function getElevenLabsKeyCandidates() {
-  const envKey =
-    process.env.ELEVENLABS_API_KEY?.trim() ||
-    process.env.ELEVEN_API_KEY?.trim() ||
-    "";
+export async function getElevenLabsKeyCandidates() {
   const candidates = [];
-  if (envKey) candidates.push(envKey);
+  const add = (v) => {
+    if (v && typeof v === "string" && v.trim()) candidates.push(v.trim());
+  };
+  add(process.env.ELEVENLABS_API_KEY);
+  add(process.env.ELEVEN_API_KEY);
+  for (let i = 1; i <= 20; i++) {
+    add(process.env[`ELEVENLABS_API_KEY_${i}`]);
+  }
   const fallbackKey = await fetchFallbackElevenLabsKey();
   if (fallbackKey && !candidates.includes(fallbackKey)) {
     candidates.push(fallbackKey);
   }
-  return candidates;
+  return [...new Set(candidates)];
 }
 
 /**

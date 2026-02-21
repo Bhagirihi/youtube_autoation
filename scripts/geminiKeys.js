@@ -152,10 +152,10 @@ export async function checkGeminiKeys() {
   for (const { name, key } of candidates) {
     const result = await testKey(name, key);
     if (result.ok) return key;
-    console.warn(`${name}: ${result.error || "failed"} (expired or quota?)`);
+    console.warn(`[Key check] ${name}: ${result.error || "failed"} (expired or quota?)`);
   }
 
-  console.warn("⚠️ All Gemini keys failed (expired or out of quota). Add or rotate keys in .env.");
+  console.warn("⚠️ All Gemini keys failed the quick check (expired or out of quota). Add or rotate GEMINI_* keys in .env.");
   return null;
 }
 
@@ -167,7 +167,7 @@ export async function getStoryKey() {
   if (storyKey) {
     const result = await testKey("GEMINI_STORY_API_KEY", storyKey);
     if (result.ok) return storyKey;
-    console.warn(`GEMINI_STORY_API_KEY: ${result.error || "failed"}`);
+    console.warn(`[Key check] GEMINI_STORY_API_KEY: ${result.error || "failed"}`);
   }
   return checkGeminiKeys();
 }

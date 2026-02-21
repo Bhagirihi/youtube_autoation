@@ -104,6 +104,25 @@ horror-auto-factory-v2/
 - **Run pipeline** runs in a serverless function. Story generation can take 30–60s; the function is set to 60s max (Pro plan). On the Hobby plan (10s limit), the pipeline may time out — use it for **viewing/copying** a story generated elsewhere, or run the pipeline locally and rely on Vercel for the UI.
 - Writable data (e.g. `temp/story.json`) is written under `/tmp` on Vercel, so “Run pipeline” can persist the story for that request.
 
+## Run on GitHub Actions
+
+The pipeline can run fully in GitHub Actions (story → audio → images → video → thumbnail, optional YouTube upload).
+
+1. **Push the repo** and open **Actions** → **Run pipeline** → **Run workflow**.
+2. **Secrets** (Settings → Secrets and variables → Actions): add the same keys you use in `.env`:
+
+   | Secret | Required | Notes |
+   |--------|----------|--------|
+   | `GEMINI_MASTER_API_KEY` | Yes (for story) | At least one `GEMINI_*` key. |
+   | `ELEVENLABS_API_KEY` or Sarvam/Gemini TTS | Yes (for audio) | One TTS provider. |
+   | `USE_SARVAM_TTS` | Optional | Set to `1` to use Sarvam; then set `SARVAM_API_KEY`. |
+   | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REDIRECT_URI`, `YT_REFRESH_TOKEN` | For upload | Only if you enable **Upload to YouTube** when running the workflow. |
+   | `YT_PRIVACY_STATUS` | Optional | `public`, `unlisted`, or `private` (default: `public`). |
+   | `BGM_PATH`, `VIDEO_PRESET`, `VIDEO_FAST` | Optional | Same as in `.env`. |
+
+3. **Optional:** When triggering the workflow, check **Upload to YouTube** to upload the generated video after the pipeline (requires the YT_* secrets above).
+4. **Artifacts:** The workflow uploads `output/final.mp4`, `thumbnails/thumb.jpg`, and `temp/story.json` as workflow artifacts so you can download them.
+
 ## Features
 
 | Feature              | Status |

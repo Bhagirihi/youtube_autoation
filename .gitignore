@@ -9,3 +9,6 @@ output/
 *.mp4
 *.mp3
 !assets/music/*.mp3
+auth/
+*client_secret*.json
+*.token.json

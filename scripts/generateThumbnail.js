@@ -1,43 +1,48 @@
-import ffmpeg from "fluent-ffmpeg";
 import fs from "fs-extra";
 import path from "path";
 import { fileURLToPath } from "url";
+import { chromium } from "playwright";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");
+const THUMB_W = 1280;
+const THUMB_H = 720;
 
-function findFontPath() {
-  const candidates = [
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-    "/System/Library/Fonts/Helvetica.ttc",
-    "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
-    "C:\\Windows\\Fonts\\arial.ttf",
-  ];
-  for (const p of candidates) {
-    if (fs.existsSync(p)) return p;
-  }
-  return "Arial";
+function escapeHtml(s) {
+  if (s == null) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
-export async function generateThumbnail(title) {
-  await fs.ensureDir("thumbnails");
-  const bg = path.join(projectRoot, "images/scene_1.jpg");
-  const safeTitle = title.replace(/[:\n]/g, " ").replace(/'/g, "\\'");
-  const font = findFontPath();
+export async function generateThumbnail(title, subtitle = "Hindi Horror Story") {
+  await fs.ensureDir(path.join(projectRoot, "thumbnails"));
+  const bgPath = path.join(projectRoot, "images", "scene_1.jpg");
+  if (!(await fs.pathExists(bgPath))) {
+    throw new Error("images/scene_1.jpg not found. Run the Images step first.");
+  }
 
-  return new Promise((resolve, reject) => {
-    const vf =
-      font !== "Arial"
-        ? `scale=1280:720,drawtext=fontfile='${font}':text='${safeTitle}':fontcolor=white:fontsize=60:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h-120`
-        : `scale=1280:720,drawtext=text='${safeTitle}':fontcolor=white:fontsize=60:borderw=3:bordercolor=black:x=(w-text_w)/2:y=h-120`;
-    ffmpeg(bg)
-      .outputOptions(["-vf", vf])
-      .output(path.join(projectRoot, "thumbnails/thumb.jpg"))
-      .on("end", () => {
-        console.log("✅ Thumbnail generated (thumbnails/thumb.jpg)");
-        resolve();
-      })
-      .on("error", reject)
-      .run();
+  const templatePath = path.join(projectRoot, "templates", "thumbnail.html");
+  let html = await fs.readFile(templatePath, "utf-8");
+  const imageBuffer = await fs.readFile(bgPath);
+  const imageDataUrl = `data:image/jpeg;base64,${imageBuffer.toString("base64")}`;
+  html = html
+    .replace("{{IMAGE_DATA_URL}}", imageDataUrl)
+    .replace("{{MAIN_TITLE}}", escapeHtml(title || "Horror Story"))
+    .replace("{{SUB_TITLE}}", escapeHtml(subtitle));
+
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage();
+  await page.setViewportSize({ width: THUMB_W, height: THUMB_H });
+  await page.setContent(html, { waitUntil: "networkidle" });
+  const thumbPath = path.join(projectRoot, "thumbnails", "thumb.jpg");
+  await page.screenshot({
+    path: thumbPath,
+    type: "jpeg",
+    quality: 92,
   });
+  await browser.close();
+  console.log("✅ Thumbnail generated (thumbnails/thumb.jpg) — 16:9, Horror Podcast Adda style");
 }

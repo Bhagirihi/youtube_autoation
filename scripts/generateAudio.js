@@ -1,16 +1,57 @@
 import fs from "fs-extra";
 import path from "path";
+import { execSync } from "child_process";
 import ffmpeg from "fluent-ffmpeg";
 import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { shouldUseElevenLabs } from "../elelab.js";
 import { generateAudioGemini, generateAudioGeminiWithParagraphs } from "./generateAudioGemini.js";
+import {
+  generateAudioSarvam,
+  generateAudioSarvamWithParagraphs,
+  getSarvamKeyList,
+} from "./generateAudioSarvam.js";
+import {
+  generateAudioInworld,
+  generateAudioInworldWithParagraphs,
+  getInworldKeyList,
+} from "./generateAudioInworld.js";
 
 const VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "JBFqnCBsd6RMkjVDRZzb";
 const MODEL_ID = "eleven_multilingual_v2";
 const MAX_CHARS = 2500;
 
+/** Slower pace = more suspense (e.g. 0.96 = 4% slower). Applied after TTS to narration + paragraph_timings. */
+const TTS_PACE = (() => {
+  const v = parseFloat(process.env.TTS_PACE);
+  if (Number.isFinite(v) && v >= 0.5 && v <= 1.5) return v;
+  return null;
+})();
+
 function getTempDir() {
   return path.join(process.env.DATA_DIR || process.cwd(), "temp");
+}
+
+/** If TTS_PACE is set, slow down narration with atempo and scale paragraph_timings so video stays in sync. */
+async function applyPace(narrationPath, tempDir) {
+  if (TTS_PACE == null || TTS_PACE === 1 || !(await fs.pathExists(narrationPath))) return;
+  const tmpPath = narrationPath + ".pace.mp3";
+  execSync(
+    `ffmpeg -y -i "${narrationPath}" -filter:a "atempo=${TTS_PACE}" "${tmpPath}"`,
+    { stdio: "ignore" }
+  );
+  await fs.move(tmpPath, narrationPath, { overwrite: true });
+  const timingsPath = path.join(tempDir, "paragraph_timings.json");
+  if (await fs.pathExists(timingsPath)) {
+    const timings = await fs.readJson(timingsPath);
+    const scale = 1 / TTS_PACE;
+    const scaled = timings.map((t) => ({
+      start: (t.start ?? 0) * scale,
+      end: (t.end ?? t.start ?? 0) * scale,
+      duration: (t.duration ?? 0) * scale,
+    }));
+    await fs.writeJson(timingsPath, scaled, { spaces: 2 });
+  }
+  console.log(`  Pace applied: ${(TTS_PACE * 100).toFixed(0)}% speed`);
 }
 
 function getAudioDuration(file) {
@@ -39,14 +80,85 @@ export async function generateAudio() {
   const useParagraphMode = Array.isArray(paragraphs) && paragraphs.length > 0;
 
   const forceGemini = process.env.USE_GEMINI_TTS === "1" || process.env.USE_GEMINI_TTS === "true";
+  const forceSarvam = process.env.USE_SARVAM_TTS === "1" || process.env.USE_SARVAM_TTS === "true";
+  const forceInworld = process.env.USE_INWORLD_TTS === "1" || process.env.USE_INWORLD_TTS === "true";
   const hasGeminiKey = !!(
     process.env.GEMINI_MASTER_API_KEY ||
     process.env.GEMINI_API_KEY ||
     (process.env.GEMINI_MASTER_API_KEY_1 && process.env.GEMINI_MASTER_API_KEY_1.trim())
   );
+  const sarvamKeys = getSarvamKeyList();
+  const hasSarvamKey = sarvamKeys.length > 0;
+  const inworldKeys = getInworldKeyList();
+  const hasInworldKey = inworldKeys.length > 0;
 
   const elevenLabsCheck = await shouldUseElevenLabs();
-  const useElevenLabs = !forceGemini && elevenLabsCheck.use && elevenLabsCheck.apiKey;
+  const useElevenLabs = !forceGemini && !forceSarvam && !forceInworld && elevenLabsCheck.use && elevenLabsCheck.apiKey;
+
+  if (forceInworld) {
+    if (!hasInworldKey) {
+      console.warn("⚠ USE_INWORLD_TTS=1 but INWORLD_BASIC_AUTH (or INWORLD_API_KEY) not set. Skipping Inworld.");
+    }
+  }
+  if (forceInworld && hasInworldKey) {
+    try {
+      if (useParagraphMode) {
+        await generateAudioInworldWithParagraphs(paragraphs);
+      } else {
+        await generateAudioInworld();
+      }
+      await applyPace(outPath, tempDir);
+      return;
+    } catch (err) {
+      console.warn("⚠ Inworld TTS failed:", err?.message ?? err);
+      if (hasGeminiKey) {
+        console.log("  Falling back to Gemini TTS…");
+        try {
+          if (useParagraphMode) await generateAudioGeminiWithParagraphs(paragraphs);
+          else await generateAudioGemini();
+          await applyPace(outPath, tempDir);
+          return;
+        } catch (e) {
+          console.warn("⚠ Gemini TTS failed:", e?.message ?? e);
+        }
+      }
+      await createSilentNarration(outPath, text);
+      console.log("✅ Silent narration created (voiceover/narration.mp3)\n");
+      return;
+    }
+  }
+
+  if (forceSarvam) {
+    if (!hasSarvamKey) {
+      console.warn("⚠ USE_SARVAM_TTS=1 but SARVAM_API_KEY (or SARVAM_API_SUBSCRIPTION_KEY) not set. Skipping Sarvam.");
+    }
+  }
+  if (forceSarvam && hasSarvamKey) {
+    try {
+      if (useParagraphMode) {
+        await generateAudioSarvamWithParagraphs(paragraphs);
+      } else {
+        await generateAudioSarvam();
+      }
+      await applyPace(outPath, tempDir);
+      return;
+    } catch (err) {
+      console.warn("⚠ Sarvam TTS failed:", err?.message ?? err);
+      if (hasGeminiKey) {
+        console.log("  Falling back to Gemini TTS…");
+        try {
+          if (useParagraphMode) await generateAudioGeminiWithParagraphs(paragraphs);
+          else await generateAudioGemini();
+          return;
+        } catch (e) {
+          console.warn("⚠ Gemini TTS failed:", e?.message ?? e);
+        }
+      }
+      await createSilentNarration(outPath, text);
+      console.log("✅ Silent narration created (voiceover/narration.mp3)\n");
+      return;
+    }
+  }
 
   if (useElevenLabs) {
     try {
@@ -76,7 +188,6 @@ export async function generateAudio() {
           const start = timings.reduce((s, t) => s + t.duration, 0);
           timings.push({ start, end: start + duration, duration });
           buffers.push(buf);
-          await fs.remove(partPath).catch(() => {});
         }
         await concatMp3(buffers, outPath);
         await fs.ensureDir(tempDir);
@@ -108,6 +219,7 @@ export async function generateAudio() {
         }
         console.log("✅ Audio generated (voiceover/narration.mp3)");
       }
+      await applyPace(outPath, tempDir);
       return;
     } catch (err) {
       console.warn("⚠ ElevenLabs TTS failed:", err?.message ?? err);
@@ -137,6 +249,7 @@ export async function generateAudio() {
       } else {
         await generateAudioGemini();
       }
+      await applyPace(outPath, tempDir);
       return;
     } catch (err) {
       console.warn("⚠ Gemini TTS failed:", err?.message ?? err);
