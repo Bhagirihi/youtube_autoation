@@ -151,25 +151,55 @@ export async function checkGeminiKeys() {
 
   for (const { name, key } of candidates) {
     const result = await testKey(name, key);
-    if (result.ok) return key;
-    console.warn(`[Key check] ${name}: ${result.error || "failed"} (expired or quota?)`);
+    if (result.ok) {
+      console.log(`[Gemini] Key check: ${name} → OK (using for story/fallback)`);
+      return { key, name };
+    }
+    console.warn(`[Gemini] Key check: ${name} → failed (${result.error || "expired or quota?"})`);
   }
 
-  console.warn("⚠️ All Gemini keys failed the quick check (expired or out of quota). Add or rotate GEMINI_* keys in .env.");
+  const isCI = process.env.GITHUB_ACTIONS === "true";
+  console.warn(
+    "⚠️ All Gemini keys failed the quick check (expired or out of quota). " +
+      (isCI
+        ? "In CI: ensure ENV_FILE secret contains a valid Gemini key with quota (Google AI Studio)."
+        : "Add or rotate GEMINI_* keys in .env.")
+  );
   return null;
 }
 
 /**
  * Key for story generation. Use GEMINI_STORY_API_KEY if set, else first working key.
+ * Returns { key, name } so callers can log which key is used (e.g. in GitHub Actions).
+ * Set SKIP_GEMINI_KEY_CHECK=1 to skip the quick test and use first available key.
  */
 export async function getStoryKey() {
+  const skipCheck = process.env.SKIP_GEMINI_KEY_CHECK === "1" || process.env.SKIP_GEMINI_KEY_CHECK === "true";
   const storyKey = process.env.GEMINI_STORY_API_KEY?.trim();
   if (storyKey) {
+    if (skipCheck) {
+      console.log("[Gemini] Using key: GEMINI_STORY_API_KEY (check skipped)");
+      return { key: storyKey, name: "GEMINI_STORY_API_KEY" };
+    }
     const result = await testKey("GEMINI_STORY_API_KEY", storyKey);
-    if (result.ok) return storyKey;
-    console.warn(`[Key check] GEMINI_STORY_API_KEY: ${result.error || "failed"}`);
+    if (result.ok) {
+      console.log("[Gemini] Using key: GEMINI_STORY_API_KEY for story");
+      return { key: storyKey, name: "GEMINI_STORY_API_KEY" };
+    }
+    console.warn(`[Gemini] Key check: GEMINI_STORY_API_KEY → failed (${result.error || "expired or quota?"})`);
   }
-  return checkGeminiKeys();
+  if (skipCheck) {
+    const envEntry = Object.entries(process.env).find(
+      ([k, v]) => k.startsWith("GEMINI") && typeof v === "string" && v.trim().length > 0
+    );
+    if (envEntry) {
+      console.log("[Gemini] Using key: " + envEntry[0] + " (check skipped)");
+      return { key: envEntry[1].trim(), name: envEntry[0] };
+    }
+  }
+  const result = await checkGeminiKeys();
+  if (result) console.log("[Gemini] Using key: " + result.name + " for story");
+  return result;
 }
 
 /**

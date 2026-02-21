@@ -8,19 +8,20 @@ const getTempDir = () => path.join(process.env.DATA_DIR || process.cwd(), "temp"
 const USE_TWO_STEP_STORY = !process.env.USE_TWO_STEP_STORY;
 
 export async function generateStory() {
-  const apiKey = await getStoryKey();
-  if (!apiKey) {
+  const keyResult = await getStoryKey();
+  if (!keyResult) {
     throw new Error(
       "No Gemini key for story. Set GEMINI_STORY_API_KEY or GEMINI_* in .env (or ensure fallback). Stopping."
     );
   }
+  const { key: apiKey, name: keyName } = keyResult;
 
   let data;
   if (USE_TWO_STEP_STORY) {
-    data = await generateStoryTwoStep(apiKey);
+    data = await generateStoryTwoStep(apiKey, keyName);
   } else {
     const prompt = await fs.readFile("prompts/story.prompt.txt", "utf-8");
-    data = await callGeminiStory(apiKey, prompt, (parsed) => parsed);
+    data = await callGeminiStory(apiKey, keyName, prompt, (parsed) => parsed);
     if (!data.paragraphs || !Array.isArray(data.paragraphs) || data.paragraphs.length === 0) {
       const scenes = data.scenes && data.scenes.length ? data.scenes : ["horror scene"];
       const parts = (data.story || "")
@@ -47,11 +48,11 @@ export async function generateStory() {
   return data;
 }
 
-async function generateStoryTwoStep(apiKey) {
+async function generateStoryTwoStep(apiKey, keyName) {
   const promptPart1 = await fs.readFile("prompts/story-part1.prompt.txt", "utf-8");
   const promptPart2Template = await fs.readFile("prompts/story-part2.prompt.txt", "utf-8");
 
-  const part1 = await callGeminiStory(apiKey, promptPart1, (data) => {
+  const part1 = await callGeminiStory(apiKey, keyName, promptPart1, (data) => {
     if (!data.title && data.story) throw new Error("Part 1 missing title or story");
     return data;
   });
@@ -76,7 +77,7 @@ async function generateStoryTwoStep(apiKey) {
     `INPUT:\n\nTitle: ${(part1.title || "").replace(/"/g, '\\"')}\n\nStory:\n${storySnippet}\n\n---\n\n` +
     promptPart2Template;
 
-  const part2 = await callGeminiStory(apiKey, promptPart2, (data) => data);
+  const part2 = await callGeminiStory(apiKey, keyName, promptPart2, (data) => data);
   console.log("✅ Part 2 done: description, keywords, tags, hashtags");
 
   return {
@@ -95,7 +96,7 @@ async function generateStoryTwoStep(apiKey) {
   };
 }
 
-async function callGeminiStory(apiKey, prompt, validate) {
+async function callGeminiStory(apiKey, keyName, prompt, validate) {
   let lastErr;
   for (const model of MODELS) {
     try {
@@ -118,6 +119,7 @@ async function callGeminiStory(apiKey, prompt, validate) {
       const body = await res.json();
       if (!res.ok) {
         lastErr = new Error(body?.error?.message || `Gemini ${res.status}`);
+        console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
         continue;
       }
 
@@ -131,6 +133,7 @@ async function callGeminiStory(apiKey, prompt, validate) {
             ? `Gemini returned no text (finishReason=${finishReason})`
             : "Gemini returned empty content"
         );
+        console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
         continue;
       }
 
@@ -141,14 +144,17 @@ async function callGeminiStory(apiKey, prompt, validate) {
         lastErr = new Error(
           `Gemini blocked or stopped: finishReason=${finishReason}`
         );
+        console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
         continue;
       }
 
       const data = parseStoryJson(text, isTruncated);
       validate(data);
+      console.log(`[Gemini] story (key: ${keyName}, model: ${model}) → success`);
       return data;
     } catch (err) {
       lastErr = err;
+      console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${err?.message || err}`);
     }
   }
   throw new Error(

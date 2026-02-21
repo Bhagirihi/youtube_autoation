@@ -43,10 +43,12 @@ export async function regenerateDescriptionTags() {
   const userPart = `TITLE:\n${title}\n\nSTORY:\n${storyText}`;
   const prompt = `${promptTemplate}\n\n---\n\n${userPart}`;
 
-  const apiKey = await getStoryKey();
-  if (!apiKey) {
+  const keyResult = await getStoryKey();
+  if (!keyResult) {
     throw new Error("No Gemini key. Set GEMINI_MASTER_API_KEY or GEMINI_STORY_API_KEY in .env.");
   }
+  const apiKey = keyResult.key;
+  console.log("[Gemini] Using key:", keyResult.name, "for regenerate description/tags");
 
   let lastErr;
   for (const model of MODELS) {
@@ -81,6 +83,7 @@ export async function regenerateDescriptionTags() {
       if (Array.isArray(parsed.tags)) story.tags = parsed.tags.map((t) => String(t).trim()).filter(Boolean);
       ensureTagInDescriptionAndTags(story);
       await fs.writeJson(storyPath, story, { spaces: 2 });
+      console.log("[Gemini] regenerate description/tags (key: " + keyResult.name + "): success");
       console.log("✅ Description and tags regenerated");
       return story;
     } catch (err) {

@@ -114,12 +114,15 @@ export async function generateAudioGemini() {
   const text = await fs.readFile(storyPath, "utf-8");
 
   const ttsKeys = await getTTSKeyList();
-  const fallbackKey = await checkGeminiKeys();
-  const keyList = ttsKeys?.length ? ttsKeys : fallbackKey ? [fallbackKey] : null;
+  const fallbackResult = await checkGeminiKeys();
+  const keyList = ttsKeys?.length ? ttsKeys : fallbackResult ? [fallbackResult.key] : null;
   if (!keyList?.length) {
     throw new Error(
       "No Gemini API key for TTS. Set GEMINI_TTS_API_KEY or GEMINI_* in .env.",
     );
+  }
+  if (fallbackResult && !ttsKeys?.length) {
+    console.log("[Gemini] Using key:", fallbackResult.name, "for TTS (fallback)");
   }
 
   const fullPrompt = `${STYLE_PROMPT}\n\n${text}`;
@@ -263,12 +266,15 @@ export async function generateAudioGeminiWithParagraphs(paragraphs) {
     );
 
   const ttsKeys = await getTTSKeyList();
-  const fallbackKey = await checkGeminiKeys();
-  const keyList = ttsKeys?.length ? ttsKeys : fallbackKey ? [fallbackKey] : null;
+  const fallbackResult = await checkGeminiKeys();
+  const keyList = ttsKeys?.length ? ttsKeys : fallbackResult ? [fallbackResult.key] : null;
   if (!keyList?.length)
     throw new Error(
       "No Gemini API key for TTS. Set GEMINI_TTS_API_KEY or GEMINI_* in .env.",
     );
+  if (fallbackResult && !ttsKeys?.length) {
+    console.log("[Gemini] Using key:", fallbackResult.name, "for TTS paragraphs (fallback)");
+  }
 
   const voiceoverDir = "voiceover";
   await fs.ensureDir(voiceoverDir);
