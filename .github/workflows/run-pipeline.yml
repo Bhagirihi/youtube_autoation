@@ -1,8 +1,12 @@
 # Horror Auto Factory — run full pipeline (story → audio → images → video → thumbnail)
-# Optional: upload to YouTube (set GitHub Secrets and choose "Upload to YouTube" when triggering).
+# Scheduled: daily at 9:00 PM IST → pipeline + YouTube upload.
+# Manual: workflow_dispatch with optional "Upload to YouTube".
 name: Run pipeline
 
 on:
+  schedule:
+    # 9:00 PM IST (15:30 UTC) every day — runs pipeline and uploads to YouTube
+    - cron: "30 15 * * *"
   workflow_dispatch:
     inputs:
       upload_to_youtube:
@@ -10,9 +14,6 @@ on:
         required: false
         default: false
         type: boolean
-  # Optional: run on a schedule (uncomment and adjust)
-  # schedule:
-  #   - cron: "0 14 * * *"  # e.g. daily at 14:00 UTC
 
 env:
   DATA_DIR: ${{ github.workspace }}
@@ -70,8 +71,8 @@ jobs:
           VIDEO_FAST: ${{ secrets.VIDEO_FAST }}
         run: node index.js
 
-      - name: Upload to YouTube (optional)
-        if: success() && github.event.inputs.upload_to_youtube == 'true'
+      - name: Upload to YouTube
+        if: success() && (github.event_name == 'schedule' || github.event.inputs.upload_to_youtube == 'true')
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
