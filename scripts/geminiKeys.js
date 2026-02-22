@@ -203,6 +203,32 @@ export async function getStoryKey() {
 }
 
 /**
+ * Key for story part 2 (metadata). Use GEMINI_STORY_PART2_API_KEY if set, else same as getStoryKey().
+ * Returns { key, name } so part 2 can use a different key from part 1 (e.g. to spread quota).
+ */
+export async function getStoryPart2Key() {
+  const skipCheck = process.env.SKIP_GEMINI_KEY_CHECK === "1" || process.env.SKIP_GEMINI_KEY_CHECK === "true";
+  const part2Key = process.env.GEMINI_STORY_PART2_API_KEY?.trim();
+  if (part2Key) {
+    if (skipCheck) {
+      console.log("[Gemini] Using key: GEMINI_STORY_PART2_API_KEY for story part 2 (check skipped)");
+      return { key: part2Key, name: "GEMINI_STORY_PART2_API_KEY" };
+    }
+    const result = await testKey("GEMINI_STORY_PART2_API_KEY", part2Key);
+    if (result.ok) {
+      console.log("[Gemini] Using key: GEMINI_STORY_PART2_API_KEY for story part 2");
+      return { key: part2Key, name: "GEMINI_STORY_PART2_API_KEY" };
+    }
+    console.warn(`[Gemini] Key check: GEMINI_STORY_PART2_API_KEY → failed (${result.error || "expired or quota?"}), using story key for part 2`);
+  }
+  const storyResult = await getStoryKey();
+  if (storyResult) {
+    console.log("[Gemini] Using key: " + storyResult.name + " for story part 2 (no separate part2 key)");
+  }
+  return storyResult;
+}
+
+/**
  * List of keys for TTS. Use GEMINI_TTS_API_KEY only if set; else all GEMINI_* keys (for rotation per paragraph).
  */
 export async function getTTSKeyList() {

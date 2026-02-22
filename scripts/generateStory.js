@@ -1,6 +1,6 @@
 import fs from "fs-extra";
 import path from "path";
-import { getStoryKey, MODELS } from "./geminiKeys.js";
+import { getStoryKey, getStoryPart2Key, MODELS } from "./geminiKeys.js";
 
 const getTempDir = () => path.join(process.env.DATA_DIR || process.cwd(), "temp");
 
@@ -48,11 +48,15 @@ export async function generateStory() {
   return data;
 }
 
-async function generateStoryTwoStep(apiKey, keyName) {
+async function generateStoryTwoStep(apiKeyPart1, keyNamePart1) {
+  const keyResultPart2 = await getStoryPart2Key();
+  const apiKeyPart2 = keyResultPart2?.key ?? apiKeyPart1;
+  const keyNamePart2 = keyResultPart2?.name ?? keyNamePart1;
+
   const promptPart1 = await fs.readFile("prompts/story-part1.prompt.txt", "utf-8");
   const promptPart2Template = await fs.readFile("prompts/story-part2.prompt.txt", "utf-8");
 
-  const part1 = await callGeminiStory(apiKey, keyName, promptPart1, (data) => {
+  const part1 = await callGeminiStory(apiKeyPart1, keyNamePart1, promptPart1, (data) => {
     if (!data.title && data.story) throw new Error("Part 1 missing title or story");
     return data;
   });
@@ -77,7 +81,7 @@ async function generateStoryTwoStep(apiKey, keyName) {
     `INPUT:\n\nTitle: ${(part1.title || "").replace(/"/g, '\\"')}\n\nStory:\n${storySnippet}\n\n---\n\n` +
     promptPart2Template;
 
-  const part2 = await callGeminiStory(apiKey, keyName, promptPart2, (data) => data);
+  const part2 = await callGeminiStory(apiKeyPart2, keyNamePart2, promptPart2, (data) => data);
   console.log("✅ Part 2 done: description, keywords, tags, hashtags");
 
   return {
