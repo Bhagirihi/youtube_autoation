@@ -102,63 +102,77 @@ async function generateStoryTwoStep(apiKeyPart1, keyNamePart1) {
 
 async function callGeminiStory(apiKey, keyName, prompt, validate) {
   let lastErr;
+  const maxParseRetries = 2; // retry once on JSON parse/validate failure (new response)
   for (const model of MODELS) {
-    try {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: {
-              temperature: 0.9,
-              maxOutputTokens: 16384,
-              responseMimeType: "application/json",
-            },
-          }),
+    for (let parseAttempt = 0; parseAttempt < maxParseRetries; parseAttempt++) {
+      try {
+        const res = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: parseAttempt === 0 ? 0.9 : 0.7,
+                maxOutputTokens: 16384,
+                responseMimeType: "application/json",
+              },
+            }),
+          }
+        );
+
+        const body = await res.json();
+        if (!res.ok) {
+          lastErr = new Error(body?.error?.message || `Gemini ${res.status}`);
+          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
+          parseAttempt = maxParseRetries;
+          break;
         }
-      );
 
-      const body = await res.json();
-      if (!res.ok) {
-        lastErr = new Error(body?.error?.message || `Gemini ${res.status}`);
-        console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
-        continue;
+        const candidate = body?.candidates?.[0];
+        const finishReason = candidate?.finishReason;
+        const text = candidate?.content?.parts?.[0]?.text?.trim?.();
+
+        if (!text) {
+          lastErr = new Error(
+            finishReason
+              ? `Gemini returned no text (finishReason=${finishReason})`
+              : "Gemini returned empty content"
+          );
+          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
+          parseAttempt = maxParseRetries;
+          break;
+        }
+
+        const isTruncated = finishReason === "MAX_TOKENS" || finishReason === 2;
+        if (isTruncated) {
+          console.warn("⚠️ Response truncated (MAX_TOKENS); attempting to use partial JSON.");
+        } else if (finishReason && finishReason !== "STOP" && finishReason !== 1) {
+          lastErr = new Error(
+            `Gemini blocked or stopped: finishReason=${finishReason}`
+          );
+          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
+          parseAttempt = maxParseRetries;
+          break;
+        }
+
+        const data = parseStoryJson(text, isTruncated);
+        validate(data);
+        console.log(`[Gemini] story (key: ${keyName}, model: ${model}) → success`);
+        return data;
+      } catch (err) {
+        lastErr = err;
+        const isParseOrValidate =
+          err instanceof SyntaxError ||
+          /JSON|parse|property value|expect/i.test(String(err?.message ?? ""));
+        if (isParseOrValidate && parseAttempt < maxParseRetries - 1) {
+          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → invalid JSON, retrying once…`);
+        } else {
+          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${err?.message || err}`);
+          break;
+        }
       }
-
-      const candidate = body?.candidates?.[0];
-      const finishReason = candidate?.finishReason;
-      const text = candidate?.content?.parts?.[0]?.text?.trim?.();
-
-      if (!text) {
-        lastErr = new Error(
-          finishReason
-            ? `Gemini returned no text (finishReason=${finishReason})`
-            : "Gemini returned empty content"
-        );
-        console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
-        continue;
-      }
-
-      const isTruncated = finishReason === "MAX_TOKENS" || finishReason === 2;
-      if (isTruncated) {
-        console.warn("⚠️ Response truncated (MAX_TOKENS); attempting to use partial JSON.");
-      } else if (finishReason && finishReason !== "STOP" && finishReason !== 1) {
-        lastErr = new Error(
-          `Gemini blocked or stopped: finishReason=${finishReason}`
-        );
-        console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
-        continue;
-      }
-
-      const data = parseStoryJson(text, isTruncated);
-      validate(data);
-      console.log(`[Gemini] story (key: ${keyName}, model: ${model}) → success`);
-      return data;
-    } catch (err) {
-      lastErr = err;
-      console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${err?.message || err}`);
     }
   }
   throw new Error(
@@ -202,22 +216,74 @@ function ensureIntroOutro(data) {
   }
 }
 
+/**
+ * Fix unescaped newlines inside JSON string values (common Gemini output bug).
+ * Walks the string; inside double-quoted values, replaces literal \n with \\n.
+ */
+function sanitizeJsonStringNewlines(raw) {
+  let out = "";
+  let i = 0;
+  let inString = false;
+  let escape = false;
+  while (i < raw.length) {
+    const c = raw[i];
+    if (escape) {
+      out += c;
+      escape = false;
+      i++;
+      continue;
+    }
+    if (c === "\\") {
+      out += c;
+      escape = true;
+      i++;
+      continue;
+    }
+    if (inString) {
+      if (c === '"') {
+        inString = false;
+        out += c;
+        i++;
+        continue;
+      }
+      if (c === "\n" || c === "\r") {
+        out += "\\n";
+        if (c === "\r" && raw[i + 1] === "\n") i++;
+        i++;
+        continue;
+      }
+      out += c;
+      i++;
+      continue;
+    }
+    if (c === '"') {
+      inString = true;
+      out += c;
+      i++;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
 function parseStoryJson(raw, tryFixTruncated = false) {
   raw = raw.trim();
   const codeBlock = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeBlock) raw = codeBlock[1].trim();
 
-  const attempts = [raw];
+  const attempts = [raw, sanitizeJsonStringNewlines(raw)];
   if (tryFixTruncated) {
     const openBraces = (raw.match(/{/g) || []).length - (raw.match(/}/g) || []).length;
     const openBrackets = (raw.match(/\[/g) || []).length - (raw.match(/]/g) || []).length;
     if (openBraces > 0 || openBrackets > 0) {
-      // Typical truncation: inside "paragraphs": [ ... so try ]} then full close
       attempts.push(raw + "]}");
       let fixed = raw;
       for (let i = 0; i < openBrackets; i++) fixed += "]";
       for (let i = 0; i < openBraces; i++) fixed += "}";
       attempts.push(fixed);
+      attempts.push(sanitizeJsonStringNewlines(fixed));
     }
   }
 
@@ -226,5 +292,5 @@ function parseStoryJson(raw, tryFixTruncated = false) {
       return JSON.parse(s);
     } catch (_) {}
   }
-  return JSON.parse(raw);
+  throw new SyntaxError("JSON parse failed after all repair attempts");
 }

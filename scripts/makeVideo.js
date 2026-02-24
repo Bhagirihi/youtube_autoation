@@ -31,6 +31,11 @@ const VIDEO_FAST = process.env.VIDEO_FAST === "1" || process.env.VIDEO_FAST === 
 // Set HORROR_COLOR=1 to apply a subtle darker color curve to the final video (cold, cinematic horror look).
 const HORROR_COLOR = process.env.HORROR_COLOR === "1" || process.env.HORROR_COLOR === "true";
 
+const THUMB_START_SEC = 4;
+const INTRO_VIDEO_PATH = path.join(process.cwd(), "assets", "video", "intro.mp4");
+const END_VIDEO_PATH = path.join(process.cwd(), "assets", "video", "end.mp4");
+const THUMB_PATH = path.join(process.cwd(), "thumbnails", "thumb.jpg");
+
 function getSceneImagePaths() {
   const imagesDir = path.join(process.cwd(), "images");
   if (!fs.existsSync(imagesDir)) return [];
@@ -114,69 +119,156 @@ export async function makeVideo(sceneCountOrDurations) {
   console.log(`🖼 Using ${images.length} image(s) for video — 16:9, dark (${images.map((p) => path.basename(p)).join(", ")})`);
   const fps = 25;
 
-  const videoFilters =
-    VIDEO_FAST
-      ? segmentDurations
-          .map((_, i) => `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}]`)
-          .join(";")
-      : segmentDurations
-          .map((dur, i) => {
-            const frameCount = Math.max(1, Math.floor(dur * fps));
-            return `[${i}:v]zoompan=z='min(zoom+0.0005,1.15)':d=${frameCount}:s=1280x720,setsar=1[v${i}]`;
-          })
-          .join(";");
-  if (VIDEO_FAST) console.log("⚡ Fast mode: static images (no zoom). Set VIDEO_FAST=0 for zoom effect.");
-  const concatInputs = images.map((_, i) => `[v${i}]`).join("");
-  const narrationIdx = images.length;
-  const musicIdx = narrationIdx + 1;
-  const audioFilter = bgmPath
-    ? `[${musicIdx}:a]volume=${BGM_VOLUME}[bgm];[${narrationIdx}:a][bgm]amix=inputs=2:duration=longest[a]`
-    : `[${narrationIdx}:a]anull[a]`;
-
-  const baseDir = process.env.DATA_DIR || process.cwd();
-  const srtPath = path.join(baseDir, "temp", "subtitles.srt");
-  const burnSubtitles = (process.env.VIDEO_SUBTITLES === "1" || process.env.VIDEO_SUBTITLES === "true") && fs.existsSync(srtPath);
-  const srtPathEsc = srtPath.replace(/\\/g, "/");
-  let filterComplex = `${videoFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0[v]`;
-  let videoChain = "[v]";
-  if (HORROR_COLOR) {
-    filterComplex += ";[v]curves=preset=darker[v2]";
-    videoChain = "[v2]";
-    console.log("🎬 Horror color curve applied (darker shadows)");
+  const n = segmentDurations.length;
+  const useIntroOutro =
+    isDurationsArray &&
+    n >= 2 &&
+    fs.existsSync(INTRO_VIDEO_PATH) &&
+    fs.existsSync(END_VIDEO_PATH);
+  const thumbImagePath = fs.existsSync(THUMB_PATH) ? THUMB_PATH : images[0];
+  if (useIntroOutro) {
+    if (!fs.existsSync(THUMB_PATH)) {
+      console.warn("⚠ thumbnails/thumb.jpg not found; using first scene image for 4s intro.");
+    } else {
+      ensureImage16x9Dark(thumbImagePath);
+    }
   }
-  if (burnSubtitles) {
-    filterComplex += `;${videoChain}subtitles=filename='${srtPathEsc}':force_style='FontSize=22,PrimaryColour=&H00FFFFFF,Outline=2,BackColour=&H80000000'[vout]`;
-    videoChain = "[vout]";
-    console.log("📝 Burning paragraph-synced subtitles into video");
-  }
-  const videoOut = videoChain;
-  filterComplex += `;${audioFilter}`;
 
-  const args = ["-y"];
-  for (let i = 0; i < images.length; i++) {
-    args.push("-loop", "1", "-t", String(segmentDurations[i]), "-i", images[i]);
-  }
-  args.push("-i", narrationPath);
-  if (bgmPath) args.push("-stream_loop", "-1", "-i", bgmPath);
-  args.push(
-    "-filter_complex",
-    filterComplex,
-    "-map",
-    videoOut,
-    "-map",
-    "[a]",
-    "-shortest",
-    "-pix_fmt",
-    "yuv420p",
-    "-c:v",
-    "libx264",
-    "-preset",
-    X264_PRESET,
-    "-c:a",
-    "aac",
-    "output/final.mp4",
-  );
+  let args;
+  let filterComplex;
+  let videoOut;
+  let narrationIdx;
+  let musicIdx;
 
+  const scalePad = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1";
+
+  if (useIntroOutro) {
+    // Structure: thumb 4s → intro.mp4 (intro paragraph - 4s) → story images → end.mp4 (outro paragraph)
+    const introDur = Math.max(0.1, segmentDurations[0] - THUMB_START_SEC);
+    const endDur = Math.max(0.1, segmentDurations[n - 1]);
+    const numStorySegments = n - 2;
+    const numVideoInputs = 1 + 1 + numStorySegments + 1; // thumb + intro + story + end
+    narrationIdx = numVideoInputs;
+    musicIdx = numVideoInputs + 1;
+
+    const videoInputs = [];
+    const filterParts = [];
+
+    // [0] thumb 4s
+    videoInputs.push({ type: "image", path: thumbImagePath, duration: THUMB_START_SEC });
+    filterParts.push(`[0:v]${scalePad}[v0]`);
+
+    // [1] intro.mp4 trimmed to introDur
+    videoInputs.push({ type: "video", path: INTRO_VIDEO_PATH });
+    filterParts.push(`[1:v]trim=duration=${introDur},setpts=PTS-STARTPTS,${scalePad}[v1]`);
+
+    // [2]..[numStorySegments+1] story images (images[1]..images[n-2])
+    for (let i = 0; i < numStorySegments; i++) {
+      const segIdx = 2 + i;
+      const dur = segmentDurations[1 + i];
+      videoInputs.push({ type: "image", path: images[1 + i], duration: dur });
+      if (VIDEO_FAST) {
+        filterParts.push(`[${segIdx}:v]${scalePad}[v${segIdx}]`);
+      } else {
+        const frameCount = Math.max(1, Math.floor(dur * fps));
+        filterParts.push(`[${segIdx}:v]zoompan=z='min(zoom+0.0005,1.15)':d=${frameCount}:s=1280x720,setsar=1[v${segIdx}]`);
+      }
+    }
+
+    // [numVideoInputs-1] end.mp4 trimmed to endDur
+    const endInputIdx = numVideoInputs - 1;
+    videoInputs.push({ type: "video", path: END_VIDEO_PATH });
+    filterParts.push(`[${endInputIdx}:v]trim=duration=${endDur},setpts=PTS-STARTPTS,${scalePad}[v${endInputIdx}]`);
+
+    const concatLabels = Array.from({ length: numVideoInputs }, (_, i) => `[v${i}]`).join("");
+    filterParts.push(`${concatLabels}concat=n=${numVideoInputs}:v=1:a=0[v]`);
+
+    const audioFilter = bgmPath
+      ? `[${musicIdx}:a]volume=${BGM_VOLUME}[bgm];[${narrationIdx}:a][bgm]amix=inputs=2:duration=longest[a]`
+      : `[${narrationIdx}:a]anull[a]`;
+
+    filterComplex = filterParts.join(";");
+    videoOut = "[v]";
+    const baseDir = process.env.DATA_DIR || process.cwd();
+    const srtPath = path.join(baseDir, "temp", "subtitles.srt");
+    const burnSubtitles = (process.env.VIDEO_SUBTITLES === "1" || process.env.VIDEO_SUBTITLES === "true") && fs.existsSync(srtPath);
+    const srtPathEsc = srtPath.replace(/\\/g, "/");
+    if (HORROR_COLOR) {
+      filterComplex += ";[v]curves=preset=darker[v2]";
+      videoOut = "[v2]";
+    }
+    if (burnSubtitles) {
+      filterComplex += `;${videoOut}subtitles=filename='${srtPathEsc}':force_style='FontSize=22,PrimaryColour=&H00FFFFFF,Outline=2,BackColour=&H80000000'[vout]`;
+      videoOut = "[vout]";
+    }
+    filterComplex += ";" + audioFilter;
+
+    args = ["-y"];
+    for (const inp of videoInputs) {
+      if (inp.type === "image") {
+        args.push("-loop", "1", "-t", String(inp.duration), "-i", inp.path);
+      } else {
+        args.push("-i", inp.path);
+      }
+    }
+    args.push("-i", narrationPath);
+    if (bgmPath) args.push("-stream_loop", "-1", "-i", bgmPath);
+    args.push("-filter_complex", filterComplex, "-map", videoOut, "-map", "[a]", "-shortest", "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", X264_PRESET, "-c:a", "aac", "output/final.mp4");
+
+    console.log("📐 Intro/outro: thumb 4s → intro.mp4 → story → end.mp4");
+  } else {
+    // Original: only scene images
+    if (!useIntroOutro && isDurationsArray && n >= 2) {
+      if (!fs.existsSync(INTRO_VIDEO_PATH)) console.warn("⚠ assets/video/intro.mp4 not found; skipping intro clip.");
+      if (!fs.existsSync(END_VIDEO_PATH)) console.warn("⚠ assets/video/end.mp4 not found; skipping end clip.");
+    }
+    const videoFilters =
+      VIDEO_FAST
+        ? segmentDurations
+            .map((_, i) => `[${i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,setsar=1[v${i}]`)
+            .join(";")
+        : segmentDurations
+            .map((dur, i) => {
+              const frameCount = Math.max(1, Math.floor(dur * fps));
+              return `[${i}:v]zoompan=z='min(zoom+0.0005,1.15)':d=${frameCount}:s=1280x720,setsar=1[v${i}]`;
+            })
+            .join(";");
+    if (VIDEO_FAST) console.log("⚡ Fast mode: static images (no zoom). Set VIDEO_FAST=0 for zoom effect.");
+    const concatInputs = images.map((_, i) => `[v${i}]`).join("");
+    narrationIdx = images.length;
+    musicIdx = narrationIdx + 1;
+    const audioFilter = bgmPath
+      ? `[${musicIdx}:a]volume=${BGM_VOLUME}[bgm];[${narrationIdx}:a][bgm]amix=inputs=2:duration=longest[a]`
+      : `[${narrationIdx}:a]anull[a]`;
+
+    const baseDir = process.env.DATA_DIR || process.cwd();
+    const srtPath = path.join(baseDir, "temp", "subtitles.srt");
+    const burnSubtitles = (process.env.VIDEO_SUBTITLES === "1" || process.env.VIDEO_SUBTITLES === "true") && fs.existsSync(srtPath);
+    const srtPathEsc = srtPath.replace(/\\/g, "/");
+    filterComplex = `${videoFilters};${concatInputs}concat=n=${sceneCount}:v=1:a=0[v]`;
+    videoOut = "[v]";
+    if (HORROR_COLOR) {
+      filterComplex += ";[v]curves=preset=darker[v2]";
+      videoOut = "[v2]";
+      console.log("🎬 Horror color curve applied (darker shadows)");
+    }
+    if (burnSubtitles) {
+      filterComplex += `;${videoOut}subtitles=filename='${srtPathEsc}':force_style='FontSize=22,PrimaryColour=&H00FFFFFF,Outline=2,BackColour=&H80000000'[vout]`;
+      videoOut = "[vout]";
+      console.log("📝 Burning paragraph-synced subtitles into video");
+    }
+    filterComplex += `;${audioFilter}`;
+
+    args = ["-y"];
+    for (let i = 0; i < images.length; i++) {
+      args.push("-loop", "1", "-t", String(segmentDurations[i]), "-i", images[i]);
+    }
+    args.push("-i", narrationPath);
+    if (bgmPath) args.push("-stream_loop", "-1", "-i", bgmPath);
+    args.push("-filter_complex", filterComplex, "-map", videoOut, "-map", "[a]", "-shortest", "-pix_fmt", "yuv420p", "-c:v", "libx264", "-preset", X264_PRESET, "-c:a", "aac", "output/final.mp4");
+  }
+
+  const outputPath = path.join(process.cwd(), "output", "final.mp4");
   return new Promise((resolve, reject) => {
     const proc = spawn("ffmpeg", args, {
       stdio: "inherit",
@@ -186,9 +278,18 @@ export async function makeVideo(sceneCountOrDurations) {
       if (code === 0) {
         console.log("✅ Video created (output/final.mp4)");
         resolve();
-      } else {
-        reject(new Error(`ffmpeg exited with code ${code}`));
+        return;
       }
+      // Some environments (e.g. CI) report non-zero exit (e.g. 228) even when encoding completed
+      try {
+        const stat = fs.statSync(outputPath);
+        if (stat && stat.size > 0) {
+          console.warn(`⚠ ffmpeg exited with code ${code} but output/final.mp4 exists (${stat.size} bytes); treating as success.`);
+          resolve();
+          return;
+        }
+      } catch (_) {}
+      reject(new Error(`ffmpeg exited with code ${code}`));
     });
     proc.on("error", reject);
   });
