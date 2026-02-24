@@ -68,6 +68,29 @@ jobs:
       - name: Run pipeline
         run: node index.js
 
+      - name: Full story in job summary
+        if: success()
+        run: |
+          echo "## Full story" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f temp/story.json ]; then
+            echo "**Title:** $(jq -r '.title // "—"' temp/story.json)" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "<details><summary>Click to expand full story</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<pre>" >> $GITHUB_STEP_SUMMARY
+          if [ -f temp/story.txt ]; then
+            # Escape HTML so </pre> in story doesn't break the block
+            sed 's/&/\&amp;/g; s/</\&lt;/g; s/>/\&gt;/g' temp/story.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "(story not found)" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "</pre>" >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Also available in **pipeline-output** artifact as \`temp/story.txt\` and \`temp/story.json\`." >> $GITHUB_STEP_SUMMARY
+
       - name: Upload to YouTube
         if: success() && (github.event_name == 'schedule' || github.event.inputs.upload_to_youtube == 'true')
         run: node scripts/uploadYoutubeFromCLI.js
@@ -80,4 +103,5 @@ jobs:
             output/final.mp4
             thumbnails/thumb.jpg
             temp/story.json
+            temp/story.txt
           if-no-files-found: warn

@@ -81,8 +81,22 @@ async function generateStoryTwoStep(apiKeyPart1, keyNamePart1) {
     `INPUT:\n\nTitle: ${(part1.title || "").replace(/"/g, '\\"')}\n\nStory:\n${storySnippet}\n\n---\n\n` +
     promptPart2Template;
 
-  const part2 = await callGeminiStory(apiKeyPart2, keyNamePart2, promptPart2, (data) => data);
-  console.log("✅ Part 2 done: description, keywords, tags, hashtags");
+  let part2;
+  try {
+    part2 = await callGeminiStory(apiKeyPart2, keyNamePart2, promptPart2, (data) => data);
+    console.log("✅ Part 2 done: description, keywords, tags, hashtags");
+  } catch (err) {
+    console.warn("⚠ Part 2 (metadata) failed after retries — using defaults so pipeline can continue:", err?.message || err);
+    part2 = {
+      description: (part1.title || "Horror story") + " | Horror Podcast Adda",
+      tripleKeywords: [],
+      highVolumeTags: [],
+      rankedTags: [],
+      highRankedKeywords: [],
+      hashtags: ["horror", "horrorstory", "podcast"],
+      tags: ["horror", "story", "Hindi"],
+    };
+  }
 
   return {
     title: part1.title,
@@ -103,76 +117,94 @@ async function generateStoryTwoStep(apiKeyPart1, keyNamePart1) {
 async function callGeminiStory(apiKey, keyName, prompt, validate) {
   let lastErr;
   const maxParseRetries = 2; // retry once on JSON parse/validate failure (new response)
+  const maxEmptyRetries = 2; // retry on empty content (same request, same model)
   for (const model of MODELS) {
     for (let parseAttempt = 0; parseAttempt < maxParseRetries; parseAttempt++) {
-      try {
-        const res = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: prompt }] }],
-              generationConfig: {
-                temperature: parseAttempt === 0 ? 0.9 : 0.7,
-                maxOutputTokens: 16384,
-                responseMimeType: "application/json",
-              },
-            }),
+      let emptyExhausted = false;
+      for (let emptyAttempt = 0; emptyAttempt <= maxEmptyRetries; emptyAttempt++) {
+        try {
+          const res = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                  temperature: emptyAttempt === 0 ? 0.9 : 0.6 + emptyAttempt * 0.1,
+                  maxOutputTokens: 16384,
+                  responseMimeType: "application/json",
+                },
+              }),
+            }
+          );
+
+          const body = await res.json();
+          if (!res.ok) {
+            lastErr = new Error(body?.error?.message || `Gemini ${res.status}`);
+            console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
+            emptyAttempt = maxEmptyRetries;
+            break;
           }
-        );
 
-        const body = await res.json();
-        if (!res.ok) {
-          lastErr = new Error(body?.error?.message || `Gemini ${res.status}`);
-          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
-          parseAttempt = maxParseRetries;
-          break;
-        }
+          const candidate = body?.candidates?.[0];
+          const finishReason = candidate?.finishReason;
+          const text = candidate?.content?.parts?.[0]?.text?.trim?.();
 
-        const candidate = body?.candidates?.[0];
-        const finishReason = candidate?.finishReason;
-        const text = candidate?.content?.parts?.[0]?.text?.trim?.();
+          if (!text) {
+            const promptFeedback = body?.promptFeedback;
+            const safetyRatings = candidate?.safetyRatings;
+            if (process.env.GITHUB_ACTIONS || process.env.DEBUG_GEMINI) {
+              console.warn(
+                `[Gemini] empty content: finishReason=${finishReason} blockReason=${promptFeedback?.blockReason ?? "n/a"} safety=${JSON.stringify(safetyRatings ?? [])}`
+              );
+            }
+            lastErr = new Error(
+              finishReason
+                ? `Gemini returned no text (finishReason=${finishReason})`
+                : "Gemini returned empty content"
+            );
+            if (emptyAttempt < maxEmptyRetries) {
+              const delayMs = (emptyAttempt + 1) * 2000;
+              console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → empty content, retrying in ${delayMs / 1000}s (${emptyAttempt + 1}/${maxEmptyRetries})…`);
+              await new Promise((r) => setTimeout(r, delayMs));
+              continue;
+            }
+            emptyExhausted = true;
+            console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
+            break;
+          }
 
-        if (!text) {
-          lastErr = new Error(
-            finishReason
-              ? `Gemini returned no text (finishReason=${finishReason})`
-              : "Gemini returned empty content"
-          );
-          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
-          parseAttempt = maxParseRetries;
-          break;
-        }
+          const isTruncated = finishReason === "MAX_TOKENS" || finishReason === 2;
+          if (isTruncated) {
+            console.warn("⚠️ Response truncated (MAX_TOKENS); attempting to use partial JSON.");
+          } else if (finishReason && finishReason !== "STOP" && finishReason !== 1) {
+            lastErr = new Error(
+              `Gemini blocked or stopped: finishReason=${finishReason}`
+            );
+            console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
+            parseAttempt = maxParseRetries;
+            break;
+          }
 
-        const isTruncated = finishReason === "MAX_TOKENS" || finishReason === 2;
-        if (isTruncated) {
-          console.warn("⚠️ Response truncated (MAX_TOKENS); attempting to use partial JSON.");
-        } else if (finishReason && finishReason !== "STOP" && finishReason !== 1) {
-          lastErr = new Error(
-            `Gemini blocked or stopped: finishReason=${finishReason}`
-          );
-          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${lastErr.message}`);
-          parseAttempt = maxParseRetries;
-          break;
-        }
-
-        const data = parseStoryJson(text, isTruncated);
-        validate(data);
-        console.log(`[Gemini] story (key: ${keyName}, model: ${model}) → success`);
-        return data;
-      } catch (err) {
-        lastErr = err;
-        const isParseOrValidate =
-          err instanceof SyntaxError ||
-          /JSON|parse|property value|expect/i.test(String(err?.message ?? ""));
-        if (isParseOrValidate && parseAttempt < maxParseRetries - 1) {
-          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → invalid JSON, retrying once…`);
-        } else {
-          console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${err?.message || err}`);
+          const data = parseStoryJson(text, isTruncated);
+          validate(data);
+          console.log(`[Gemini] story (key: ${keyName}, model: ${model}) → success`);
+          return data;
+        } catch (err) {
+          lastErr = err;
+          const isParseOrValidate =
+            err instanceof SyntaxError ||
+            /JSON|parse|property value|expect/i.test(String(err?.message ?? ""));
+          if (isParseOrValidate && parseAttempt < maxParseRetries - 1) {
+            console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → invalid JSON, retrying once…`);
+          } else {
+            console.warn(`[Gemini] story (key: ${keyName}, model: ${model}) → failed: ${err?.message || err}`);
+          }
           break;
         }
       }
+      if (emptyExhausted) break;
     }
   }
   throw new Error(
