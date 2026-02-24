@@ -55,6 +55,7 @@ jobs:
 
       # One secret: paste your full .env into repo secret "ENV_FILE" (Settings → Secrets → Actions).
       - name: Create .env from ENV_FILE secret
+        id: create_env
         env:
           ENV_FILE: ${{ secrets.ENV_FILE }}
         run: |
@@ -64,6 +65,17 @@ jobs:
           fi
           printf '%s' "$ENV_FILE" > .env
           echo "Loaded .env from ENV_FILE secret"
+
+      - name: Check YouTube auth
+        id: yt_check
+        run: |
+          if grep -q '^YT_REFRESH_TOKEN=.' .env 2>/dev/null; then
+            echo "has_yt_token=true" >> $GITHUB_OUTPUT
+            echo "YouTube auth found in ENV_FILE; upload step will run when requested."
+          else
+            echo "has_yt_token=false" >> $GITHUB_OUTPUT
+            echo "::notice::No YT_REFRESH_TOKEN in ENV_FILE — YouTube upload step will be skipped. Add it to the secret to enable uploads."
+          fi
 
       - name: Run pipeline
         run: node index.js
@@ -92,7 +104,7 @@ jobs:
           echo "Also available in **pipeline-output** artifact as \`temp/story.txt\` and \`temp/story.json\`." >> $GITHUB_STEP_SUMMARY
 
       - name: Upload to YouTube
-        if: success() && (github.event_name == 'schedule' || github.event.inputs.upload_to_youtube == 'true')
+        if: success() && (github.event_name == 'schedule' || github.event.inputs.upload_to_youtube == 'true') && steps.yt_check.outputs.has_yt_token == 'true'
         run: node scripts/uploadYoutubeFromCLI.js
 
       - name: Upload artifacts
