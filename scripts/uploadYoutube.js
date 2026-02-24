@@ -14,10 +14,27 @@ const DEFAULT_TOKEN_PATH = path.join(
 );
 
 /**
- * Load OAuth credentials: from JSON file (YT_CLIENT_SECRET_PATH) or from env (YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REDIRECT_URI).
- * If using JSON, redirect_uri is YT_REDIRECT_URI from env (required for server callback) or JSON's first redirect_uri.
+ * Load OAuth credentials: from JSON string (YT_CLIENT_SECRET_JSON), from JSON file (YT_CLIENT_SECRET_PATH), or from env (YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REDIRECT_URI).
+ * If using JSON (string or file), redirect_uri is YT_REDIRECT_URI from env or JSON's first redirect_uri.
  */
 function getCredentials() {
+  const jsonStr = process.env.YT_CLIENT_SECRET_JSON?.trim();
+  if (jsonStr) {
+    try {
+      const credentials = JSON.parse(jsonStr);
+      const installed = credentials.installed || credentials.web;
+      if (installed?.client_id && installed?.client_secret) {
+        const redirectUri =
+          process.env.YT_REDIRECT_URI?.trim() ||
+          (installed.redirect_uris && installed.redirect_uris[0]);
+        return {
+          clientId: installed.client_id,
+          clientSecret: installed.client_secret,
+          redirectUri,
+        };
+      }
+    } catch (_) {}
+  }
   const jsonPath = process.env.YT_CLIENT_SECRET_PATH?.trim();
   if (jsonPath) {
     const fullPath = path.isAbsolute(jsonPath)
@@ -44,9 +61,16 @@ function getCredentials() {
 }
 
 /**
- * Get refresh token: from token file (YT_TOKEN_PATH or auth/HorrorPodcastAdda.token.json) or from env YT_REFRESH_TOKEN.
+ * Get refresh token: from JSON string (YT_TOKEN_JSON), from token file (YT_TOKEN_PATH or auth/HorrorPodcastAdda.token.json), or from env YT_REFRESH_TOKEN.
  */
 function getRefreshToken() {
+  const tokenJsonStr = process.env.YT_TOKEN_JSON?.trim();
+  if (tokenJsonStr) {
+    try {
+      const token = JSON.parse(tokenJsonStr);
+      if (token.refresh_token) return token.refresh_token;
+    } catch (_) {}
+  }
   const tokenPath =
     process.env.YT_TOKEN_PATH?.trim() ||
     (fs.existsSync(DEFAULT_TOKEN_PATH) ? DEFAULT_TOKEN_PATH : null);
@@ -64,6 +88,12 @@ export function getYoutubeConnectionStatus() {
   try {
     const { clientId, clientSecret, redirectUri } = getCredentials();
     if (!clientId || !clientSecret || !redirectUri) return { connected: false };
+    if (process.env.YT_TOKEN_JSON?.trim()) {
+      try {
+        const token = JSON.parse(process.env.YT_TOKEN_JSON.trim());
+        if (token.refresh_token) return { connected: true, source: "env" };
+      } catch (_) {}
+    }
     const tokenPath =
       process.env.YT_TOKEN_PATH?.trim() ||
       (fs.existsSync(DEFAULT_TOKEN_PATH) ? DEFAULT_TOKEN_PATH : null);
@@ -85,7 +115,7 @@ export function getYoutubeAuthUrl() {
   const { clientId, clientSecret, redirectUri } = getCredentials();
   if (!clientId || !clientSecret || !redirectUri) {
     throw new Error(
-      "YouTube credentials missing. Set YT_CLIENT_SECRET_PATH (path to client_secret JSON) or YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REDIRECT_URI in .env."
+      "YouTube credentials missing. Set YT_CLIENT_SECRET_JSON (client_secret JSON string), YT_CLIENT_SECRET_PATH (path to client_secret JSON), or YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REDIRECT_URI in .env."
     );
   }
   const oauth2 = new google.auth.OAuth2(
@@ -103,7 +133,7 @@ export function getYoutubeAuthUrl() {
 export async function exchangeCodeForTokens(code) {
   const { clientId, clientSecret, redirectUri } = getCredentials();
   if (!clientId || !clientSecret || !redirectUri) {
-    throw new Error("YouTube credentials missing. Set YT_CLIENT_SECRET_PATH or YT_CLIENT_* in .env.");
+    throw new Error("YouTube credentials missing. Set YT_CLIENT_SECRET_JSON, YT_CLIENT_SECRET_PATH, or YT_CLIENT_* in .env.");
   }
   const oauth2 = new google.auth.OAuth2(
     clientId,
@@ -232,7 +262,7 @@ export async function uploadYoutube(meta, onProgress) {
   const refreshToken = getRefreshToken();
   if (!clientId || !clientSecret || !redirectUri || !refreshToken) {
     throw new Error(
-      "YouTube auth missing. Use 'Connect YouTube' in the app or set YT_REFRESH_TOKEN (or place HorrorPodcastAdda.token.json in auth/)."
+      "YouTube auth missing. Use 'Connect YouTube' in the app or set YT_TOKEN_JSON / YT_REFRESH_TOKEN (or place HorrorPodcastAdda.token.json in auth/)."
     );
   }
 

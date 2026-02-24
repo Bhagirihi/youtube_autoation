@@ -32,6 +32,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Free disk space to avoid "No space left on device" during ffmpeg encode
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo apt-get clean
+          df -h
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -69,12 +79,15 @@ jobs:
       - name: Check YouTube auth
         id: yt_check
         run: |
-          if grep -q '^YT_REFRESH_TOKEN=.' .env 2>/dev/null; then
+          HAS_REFRESH=$(grep -q '^YT_REFRESH_TOKEN=.' .env 2>/dev/null && echo true || echo false)
+          HAS_CLIENT_ID=$(grep -q '^YT_CLIENT_ID=.' .env 2>/dev/null && echo true || echo false)
+          HAS_CLIENT_SECRET=$(grep -q '^YT_CLIENT_SECRET=.' .env 2>/dev/null && echo true || echo false)
+          if [ "$HAS_REFRESH" = true ] && [ "$HAS_CLIENT_ID" = true ] && [ "$HAS_CLIENT_SECRET" = true ]; then
             echo "has_yt_token=true" >> $GITHUB_OUTPUT
-            echo "YouTube auth found in ENV_FILE; upload step will run when requested."
+            echo "YouTube auth complete in ENV_FILE (refresh token + client id/secret); upload step will run when requested."
           else
             echo "has_yt_token=false" >> $GITHUB_OUTPUT
-            echo "::notice::No YT_REFRESH_TOKEN in ENV_FILE — YouTube upload step will be skipped. Add it to the secret to enable uploads."
+            echo "::notice::YouTube upload skipped: add YT_REFRESH_TOKEN, YT_CLIENT_ID, and YT_CLIENT_SECRET to ENV_FILE (client id/secret from your Google Cloud OAuth client JSON)."
           fi
 
       - name: Run pipeline

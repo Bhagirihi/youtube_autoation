@@ -339,7 +339,7 @@ app.get("/api/youtube/auth", (_req, res) => {
     const url = getYoutubeAuthUrl();
     res.redirect(url);
   } catch (e) {
-    res.status(500).send(`YouTube auth failed: ${e.message}. Check YT_CLIENT_SECRET_PATH and YT_REDIRECT_URI in .env.`);
+    res.status(500).send(`YouTube auth failed: ${e.message}. Check YT_CLIENT_SECRET_JSON / YT_CLIENT_SECRET_PATH and YT_REDIRECT_URI in .env.`);
   }
 });
 
