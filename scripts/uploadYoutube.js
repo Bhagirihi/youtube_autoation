@@ -5,6 +5,8 @@ import { google } from "googleapis";
 
 const YT_SCOPE =
   "https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly";
+/** Drive scope so the same OAuth token can upload to Google Drive (video, thumbnail, metadata). */
+export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
 /** Default channel token file (same pattern as YTAutomation). */
 const DEFAULT_TOKEN_PATH = path.join(
@@ -17,7 +19,7 @@ const DEFAULT_TOKEN_PATH = path.join(
  * Load OAuth credentials: from JSON string (YT_CLIENT_SECRET_JSON), from JSON file (YT_CLIENT_SECRET_PATH), or from env (YT_CLIENT_ID, YT_CLIENT_SECRET, YT_REDIRECT_URI).
  * If using JSON (string or file), redirect_uri is YT_REDIRECT_URI from env or JSON's first redirect_uri.
  */
-function getCredentials() {
+export function getCredentials() {
   const jsonStr = process.env.YT_CLIENT_SECRET_JSON?.trim();
   if (jsonStr) {
     try {
@@ -63,7 +65,7 @@ function getCredentials() {
 /**
  * Get refresh token: from JSON string (YT_TOKEN_JSON), from token file (YT_TOKEN_PATH or auth/HorrorPodcastAdda.token.json), or from env YT_REFRESH_TOKEN.
  */
-function getRefreshToken() {
+export function getRefreshToken() {
   const tokenJsonStr = process.env.YT_TOKEN_JSON?.trim();
   if (tokenJsonStr) {
     try {
@@ -126,7 +128,7 @@ export function getYoutubeAuthUrl() {
   return oauth2.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: YT_SCOPE,
+    scope: `${YT_SCOPE} ${DRIVE_SCOPE}`,
   });
 }
 

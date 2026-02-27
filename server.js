@@ -21,6 +21,7 @@ import {
   saveTokensToFile,
   getYoutubeConnectionStatus,
 } from "./scripts/uploadYoutube.js";
+import { uploadToGoogleDrive } from "./scripts/uploadToGoogleDrive.js";
 if (process.env.VERCEL) process.env.DATA_DIR = process.env.DATA_DIR || "/tmp/horror-factory";
 const dataDir = process.env.DATA_DIR || __dirname;
 
@@ -386,7 +387,12 @@ app.post("/api/youtube/upload", async (req, res) => {
       description: story.description || "",
       tags: Array.isArray(story.tags) ? story.tags : [],
       privacyStatus: process.env.YT_PRIVACY_STATUS || "public",
+      thumbnailPath: path.join(dataDir, "thumbnails", "thumb.jpg"),
     };
+    const driveUpload = process.env.DRIVE_UPLOAD === "1" || process.env.DRIVE_UPLOAD === "true";
+    if (driveUpload) {
+      await uploadToGoogleDrive(meta);
+    }
     if (wantsStream) {
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");

@@ -79,15 +79,17 @@ jobs:
       - name: Check YouTube auth
         id: yt_check
         run: |
-          HAS_REFRESH=$(grep -q '^YT_REFRESH_TOKEN=.' .env 2>/dev/null && echo true || echo false)
-          HAS_CLIENT_ID=$(grep -q '^YT_CLIENT_ID=.' .env 2>/dev/null && echo true || echo false)
-          HAS_CLIENT_SECRET=$(grep -q '^YT_CLIENT_SECRET=.' .env 2>/dev/null && echo true || echo false)
-          if [ "$HAS_REFRESH" = true ] && [ "$HAS_CLIENT_ID" = true ] && [ "$HAS_CLIENT_SECRET" = true ]; then
+          HAS_REFRESH=$(grep -qE '^YT_REFRESH_TOKEN=.' .env 2>/dev/null && echo true || echo false)
+          HAS_TOKEN_JSON=$(grep -qE '^YT_TOKEN_JSON=\{' .env 2>/dev/null && echo true || echo false)
+          HAS_CLIENT_JSON=$(grep -qE '^YT_CLIENT_SECRET_JSON=\{' .env 2>/dev/null && echo true || echo false)
+          HAS_CLIENT_ID=$(grep -qE '^YT_CLIENT_ID=.' .env 2>/dev/null && echo true || echo false)
+          HAS_CLIENT_SECRET=$(grep -qE '^YT_CLIENT_SECRET=.' .env 2>/dev/null && echo true || echo false)
+          if ([ "$HAS_REFRESH" = true ] || [ "$HAS_TOKEN_JSON" = true ]) && ([ "$HAS_CLIENT_JSON" = true ] || ([ "$HAS_CLIENT_ID" = true ] && [ "$HAS_CLIENT_SECRET" = true ])); then
             echo "has_yt_token=true" >> $GITHUB_OUTPUT
-            echo "YouTube auth complete in ENV_FILE (refresh token + client id/secret); upload step will run when requested."
+            echo "YouTube auth complete in ENV_FILE; upload step will run when requested."
           else
             echo "has_yt_token=false" >> $GITHUB_OUTPUT
-            echo "::notice::YouTube upload skipped: add YT_REFRESH_TOKEN, YT_CLIENT_ID, and YT_CLIENT_SECRET to ENV_FILE (client id/secret from your Google Cloud OAuth client JSON)."
+            echo "::notice::YouTube upload skipped: add YT_CLIENT_SECRET_JSON (or YT_CLIENT_ID + YT_CLIENT_SECRET) and YT_TOKEN_JSON or YT_REFRESH_TOKEN to ENV_FILE."
           fi
 
       - name: Run pipeline
