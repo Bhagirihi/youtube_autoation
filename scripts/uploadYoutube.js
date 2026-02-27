@@ -85,6 +85,28 @@ export function getRefreshToken() {
   return process.env.YT_REFRESH_TOKEN?.trim() || null;
 }
 
+/**
+ * Returns list of what's missing for YouTube/Drive auth, or null if nothing missing.
+ * Use in CI to fail with a clear message: "Add to ENV_FILE: ..."
+ */
+export function getYouTubeAuthMissing() {
+  const missing = [];
+  const { clientId, clientSecret, redirectUri } = getCredentials();
+  if (!clientId || !clientSecret) {
+    missing.push(
+      "OAuth client: YT_CLIENT_SECRET_JSON (full client JSON) OR YT_CLIENT_ID + YT_CLIENT_SECRET"
+    );
+  }
+  if (!redirectUri?.trim()) {
+    missing.push("YT_REDIRECT_URI (e.g. http://localhost:3000/api/youtube/callback)");
+  }
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) {
+    missing.push("Refresh token: YT_TOKEN_JSON (full token JSON) OR YT_REFRESH_TOKEN");
+  }
+  return missing.length ? missing : null;
+}
+
 /** Returns { connected: true, source: 'file'|'env' } if YouTube is ready to use; else { connected: false }. */
 export function getYoutubeConnectionStatus() {
   try {
@@ -260,13 +282,14 @@ function createProgressStream(filePath, onProgress) {
 }
 
 export async function uploadYoutube(meta, onProgress) {
-  const { clientId, clientSecret, redirectUri } = getCredentials();
-  const refreshToken = getRefreshToken();
-  if (!clientId || !clientSecret || !redirectUri || !refreshToken) {
+  const missing = getYouTubeAuthMissing();
+  if (missing) {
     throw new Error(
-      "YouTube auth missing. Use 'Connect YouTube' in the app or set YT_TOKEN_JSON / YT_REFRESH_TOKEN (or place HorrorPodcastAdda.token.json in auth/)."
+      "YouTube auth missing. Add to ENV_FILE (or .env): " + missing.join("; ")
     );
   }
+  const { clientId, clientSecret, redirectUri } = getCredentials();
+  const refreshToken = getRefreshToken();
 
   const auth = new google.auth.OAuth2(
     clientId,

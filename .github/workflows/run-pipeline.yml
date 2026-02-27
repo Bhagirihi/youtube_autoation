@@ -2,9 +2,12 @@
 # Scheduled: daily at 9:00 PM IST → pipeline + YouTube upload.
 # Manual: workflow_dispatch with optional "Upload to YouTube".
 #
+# Important: Run this workflow from the branch that has this file (e.g. main). If you use branch HPA,
+# merge main into HPA so the Check YouTube auth step and upload script stay in sync.
+#
 # Shortcut: add ONE secret in Settings → Secrets → Actions:
 #   ENV_FILE = entire contents of your .env file (copy-paste). All keys (Gemini, TTS, YouTube, etc.) in one go.
-# Story mode: if ENV_FILE contains USE_TWO_STEP_STORY=1 → single prompt; if omitted → two-step (long story + metadata).
+# For YouTube/Drive upload, ENV_FILE must include: YT_CLIENT_SECRET_JSON (or YT_CLIENT_ID + YT_CLIENT_SECRET + YT_REDIRECT_URI) and YT_TOKEN_JSON or YT_REFRESH_TOKEN.
 name: Run pipeline
 
 on:
@@ -32,15 +35,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Free disk space to avoid "No space left on device" during ffmpeg encode
+      # Free disk space to avoid "No space left on device" during ffmpeg encode (6+ min video)
       - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          sudo apt-get clean
-          df -h
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -84,12 +89,15 @@ jobs:
           HAS_CLIENT_JSON=$(grep -qE '^YT_CLIENT_SECRET_JSON=\{' .env 2>/dev/null && echo true || echo false)
           HAS_CLIENT_ID=$(grep -qE '^YT_CLIENT_ID=.' .env 2>/dev/null && echo true || echo false)
           HAS_CLIENT_SECRET=$(grep -qE '^YT_CLIENT_SECRET=.' .env 2>/dev/null && echo true || echo false)
-          if ([ "$HAS_REFRESH" = true ] || [ "$HAS_TOKEN_JSON" = true ]) && ([ "$HAS_CLIENT_JSON" = true ] || ([ "$HAS_CLIENT_ID" = true ] && [ "$HAS_CLIENT_SECRET" = true ])); then
+          HAS_REDIRECT=$(grep -qE '^YT_REDIRECT_URI=.' .env 2>/dev/null && echo true || echo false)
+          CREDS_OK=$([ "$HAS_CLIENT_JSON" = true ] || ([ "$HAS_CLIENT_ID" = true ] && [ "$HAS_CLIENT_SECRET" = true ] && [ "$HAS_REDIRECT" = true ]); echo $?)
+          TOKEN_OK=$([ "$HAS_REFRESH" = true ] || [ "$HAS_TOKEN_JSON" = true ]; echo $?)
+          if [ "$CREDS_OK" -eq 0 ] && [ "$TOKEN_OK" -eq 0 ]; then
             echo "has_yt_token=true" >> $GITHUB_OUTPUT
             echo "YouTube auth complete in ENV_FILE; upload step will run when requested."
           else
             echo "has_yt_token=false" >> $GITHUB_OUTPUT
-            echo "::notice::YouTube upload skipped: add YT_CLIENT_SECRET_JSON (or YT_CLIENT_ID + YT_CLIENT_SECRET) and YT_TOKEN_JSON or YT_REFRESH_TOKEN to ENV_FILE."
+            echo "::notice::YouTube/Drive upload skipped: add to ENV_FILE — (1) YT_CLIENT_SECRET_JSON or YT_CLIENT_ID + YT_CLIENT_SECRET + YT_REDIRECT_URI, (2) YT_TOKEN_JSON or YT_REFRESH_TOKEN."
           fi
 
       - name: Run pipeline

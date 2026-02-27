@@ -6,7 +6,7 @@
 import path from "path";
 import fs from "fs-extra";
 import "dotenv/config";
-import { uploadYoutube } from "./uploadYoutube.js";
+import { uploadYoutube, getYouTubeAuthMissing } from "./uploadYoutube.js";
 import { uploadToGoogleDrive } from "./uploadToGoogleDrive.js";
 
 const baseDir = () => process.env.DATA_DIR || process.cwd();
@@ -23,6 +23,15 @@ function getMeta(story) {
 }
 
 async function main() {
+  // Fail fast with clear message so ENV_FILE can be fixed (workflow may have passed on YT_REFRESH_TOKEN only)
+  const missing = getYouTubeAuthMissing();
+  if (missing) {
+    throw new Error(
+      "YouTube/Drive auth incomplete. Add to repository secret ENV_FILE: " +
+        missing.join("; ")
+    );
+  }
+
   const storyPath = path.join(baseDir(), "temp", "story.json");
   if (!(await fs.pathExists(storyPath))) {
     throw new Error("temp/story.json not found. Run the pipeline first.");
