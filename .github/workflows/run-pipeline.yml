@@ -81,25 +81,15 @@ jobs:
           printf '%s' "$ENV_FILE" > .env
           echo "Loaded .env from ENV_FILE secret"
 
-      # Same checks as uploadYoutubeFromCLI.js getYouTubeAuthMissing() and uploadToGoogleDrive
-      - name: Check YouTube/Drive auth
+      # When upload will run, validate auth with same logic as upload script (fail early with exact missing vars).
+      - name: Validate YouTube/Drive auth (when upload requested)
         id: yt_check
+        if: github.event_name == 'schedule' || github.event.inputs.upload_to_youtube == 'true'
         run: |
-          HAS_REFRESH=$(grep -qE '^YT_REFRESH_TOKEN=.' .env 2>/dev/null && echo true || echo false)
-          HAS_TOKEN_JSON=$(grep -qE '^YT_TOKEN_JSON=\{' .env 2>/dev/null && echo true || echo false)
-          HAS_CLIENT_JSON=$(grep -qE '^YT_CLIENT_SECRET_JSON=\{' .env 2>/dev/null && echo true || echo false)
-          HAS_CLIENT_ID=$(grep -qE '^YT_CLIENT_ID=.' .env 2>/dev/null && echo true || echo false)
-          HAS_CLIENT_SECRET=$(grep -qE '^YT_CLIENT_SECRET=.' .env 2>/dev/null && echo true || echo false)
-          HAS_REDIRECT=$(grep -qE '^YT_REDIRECT_URI=.' .env 2>/dev/null && echo true || echo false)
-          CREDS_OK=$([ "$HAS_CLIENT_JSON" = true ] || ([ "$HAS_CLIENT_ID" = true ] && [ "$HAS_CLIENT_SECRET" = true ] && [ "$HAS_REDIRECT" = true ]); echo $?)
-          TOKEN_OK=$([ "$HAS_REFRESH" = true ] || [ "$HAS_TOKEN_JSON" = true ]; echo $?)
-          if [ "$CREDS_OK" -eq 0 ] && [ "$TOKEN_OK" -eq 0 ]; then
-            echo "has_yt_token=true" >> $GITHUB_OUTPUT
-            echo "YouTube/Drive auth OK in ENV_FILE; upload step will run (Drive first if DRIVE_UPLOAD=1, then YouTube)."
-          else
-            echo "has_yt_token=false" >> $GITHUB_OUTPUT
-            echo "::notice::Upload skipped: add to ENV_FILE — (1) YT_CLIENT_SECRET_JSON or YT_CLIENT_ID + YT_CLIENT_SECRET + YT_REDIRECT_URI, (2) YT_TOKEN_JSON or YT_REFRESH_TOKEN."
-          fi
+          node scripts/checkYoutubeAuth.js && echo "has_yt_token=true" >> $GITHUB_OUTPUT || exit 1
+      - name: Note (upload not requested)
+        if: github.event_name != 'schedule' && github.event.inputs.upload_to_youtube != 'true'
+        run: echo "Upload not requested; skipping auth check."
 
       - name: Run pipeline
         run: node index.js
